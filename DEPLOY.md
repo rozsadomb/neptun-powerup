@@ -49,9 +49,12 @@ erre a repóra és **csak** issue-írásra adunk ki.
    | Név | Típus | Érték |
    |---|---|---|
    | `GITHUB_TOKEN` | **Secret** | a most kapott token |
-   | `GITHUB_REPO` | Text | `rozsadomb/neptun-powerup` |
 
-3. Mentés után **Deployments** → a legutóbbi deploy → **Retry**, hogy a változók életbe lépjenek.
+   A `GITHUB_REPO` értéke a `wrangler.jsonc` `vars` szekciójából jön, azt nem kell felvenni.
+3. Mentés után **Deployments** → a legutóbbi deploy → **Retry**, hogy a token életbe lépjen.
+
+Az ellenőrzéshez hívd meg a **https://neptun-powerup.com/api/health** címet: megmondja,
+be van-e állítva mindkettő (az értéküket sosem mutatja).
 
 Amíg ez nincs beállítva, az űrlap udvarias hibaüzenetet ad, és a felhasználót a
 GitHub issue-khoz irányítja — tehát semmi nem törik el.
