@@ -78,6 +78,59 @@ export async function ensureFreshToken(marginMs = 60_000): Promise<void> {
   }
 }
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number
+  ) {
+    super(message);
+  }
+}
+
+// Extracts a readable message from a Neptun API error response body.
+function parseErrorBody(body: string): string {
+  try {
+    const parsed = JSON.parse(body) as {
+      modelStateErrors?: { key: string; errors: string[] }[];
+      notification?: { message?: string }[];
+      message?: string;
+    };
+    const parts: string[] = [];
+    parsed.modelStateErrors?.forEach(e => parts.push(...e.errors));
+    parsed.notification?.forEach(n => n.message && parts.push(n.message));
+    if (parsed.message) {
+      parts.push(parsed.message);
+    }
+    if (parts.length > 0) {
+      return parts.join("\n");
+    }
+  } catch {
+    // fall through
+  }
+  return body.slice(0, 300);
+}
+
+// Authenticated POST returning the full response envelope.
+export async function apiPost<T>(path: string, body: unknown): Promise<ApiResponse<T>> {
+  await ensureFreshToken();
+  const call = () =>
+    fetch(API_BASE + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+      body: JSON.stringify(body),
+    });
+  let response = await call();
+  if (response.status === 401) {
+    await refreshTokens();
+    response = await call();
+  }
+  const text = await response.text();
+  if (!response.ok) {
+    throw new ApiError(parseErrorBody(text), response.status);
+  }
+  return JSON.parse(text) as ApiResponse<T>;
+}
+
 // Authenticated API call. Refreshes the token up front when needed and
 // retries once on 401.
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {

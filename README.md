@@ -4,11 +4,16 @@ A [Neptun PowerUp!](https://github.com/solymosi/npu) szellemi utódja az **új N
 
 A régi NPU a régi ASP.NET WebForms felületre épült és azzal együtt nyugdíjba vonult. Ez a projekt nulláról írja újra a funkcionalitást, de a régi DOM-manipuláció helyett elsősorban a Neptun **REST API-jára** építve (a felderített API-t lásd: [RECON.md](RECON.md)).
 
-## Funkciók (v0.1)
+## Funkciók (v0.2)
 
 - **Kidobásvédelem** – a szkript a lejárat előtt automatikusan új access tokent kér (`Account/GetNewTokens`), frissíti a sessionStorage-ban tárolt lejáratokat, és szintetikus eseményekkel a Neptun saját (memóriában ketyegő) visszaszámlálóját is szinkronban tartja, így a munkamenet soha nem jár le.
 - **Automatikus tárgylistázás** – a Tárgyfelvétel oldalon nem kell a „Tárgy keresése” gombra kattintani, a lista magától betölt.
+- **Gyorsfelvétel** – a Tárgyfelvétel oldalon egy panel felsorolja az Órarendtervezőbe betervezett, még fel nem vett tárgyakat, kurzusonként a létszámmal és a „BETELT” jelzéssel. Egy kattintás (megerősítéssel) felveszi a tárgyat a betervezett kurzusaival együtt; telt kurzusnál bekapcsolható a 10 másodperces automatikus újrapróbálkozás. Ez a régi NPU „1 kattintásos tárgyfelvétel” funkciójának megfelelője, az új felület saját tervezőjére építve.
+- **Vizsga-áttekintés** – a Vizsgák oldalain panel a felvett vizsgákkal, félévválasztó gombsorral (a választott félévet megjegyzi). Színezés a régi NPU szellemében: zöld = teljesítve, piros = sikertelen, sárga = nem jelent meg / várólistán, kék = felvett vizsga.
+- **Auto-login** – a bejelentkezési oldalon tárolt Neptun-kód/jelszó párosok, 3 másodperces visszaszámlálással automatikus belépés (bármely kattintás/billentyű megszakítja). Kézi belépés után felajánlja az adatok mentését. Captcha vagy kétfaktoros bejelentkezés esetén csak kitölt, nem küld be.
 - **Állapotjelző** – kis jelvény a jobb alsó sarokban: NPU verzió, munkamenet hátralévő ideje, utolsó frissítés.
+
+> **Figyelem:** a belépési adatokat a szkript – a régi NPU-hoz hasonlóan – titkosítás nélkül (base64) tárolja a saját gépeden. Csak olyan gépen használd, amelyhez más nem fér hozzá.
 
 ## Telepítés
 

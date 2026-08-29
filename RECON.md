@@ -54,6 +54,54 @@ Tárgyadatok (SchedulableSubjects válasz): `id` (GUID), `code`, `title`, `credi
 | `Exam/GetExamSignInStudentsList`, `GetExamRoomsList`, `GetExamDetailExamConditions`, `GetExamPreviousHistoryList` | részletek |
 | `ExamOverview/GetAvailableExamsCount`, `GetDashboardExamEntries*` | áttekintés |
 
+## Tárgyfelvétel: a signin payload és a kurzus-azonosítók (2026-08-29, igazolva)
+
+A Neptun saját `subjectSignIn$` kódja (chunk-XOEM3RGI.js) ezt küldi:
+
+```
+POST SubjectApplication/SubjectSignin
+{ courseIds, curriculumTemplateId, curriculumTemplateLineId, subjectId, termId }
+```
+
+**Csapda:** a `courseIds` a *kurzusok* id-ja (a `GetSubjectsCourses` / `GetScheduledCourses` válasz
+`id` mezője), **nem** a `scheduledCourseIds`-ben lévő érték! Utóbbi az órarendtervező rekord
+azonosítója (`scheduledCourseId`), és a signin elutasítaná. A `termId` itt a **GUID**
+(`61741419-...`), miközben a `Terms` végpont numerikus `value`-t ad (`70634`) — a query
+paraméterekben a numerikus kell, a payloadban a GUID.
+
+`GetScheduledCourses?request.termId=<numerikus>` egyetlen hívásban visszaad mindent:
+* `scheduledCourseId != null && !isRegistered` → **betervezett, még fel nem vett** kurzus,
+* `isRegistered: true` (és `scheduledCourseId: null`) → már felvett kurzus (az órarendben van),
+* kurzusonként: `id` (kurzus id), `subjectId`, `curriculumTemplateId`, `curriculumTemplateLineId`,
+  `termId` (GUID), `title`, `code`, `type`, `tutorName`, `subjectCredit`, `isFull`, `strength`,
+  `maxLimit`, `waitingStudentsCount`, `willBeOnWaitingList`, órarendi időpontok.
+
+`SubjectTypes`: 1 = Mintatantervi, 2 = Egyéb szabadon választható, 3 = Minden további intézményi.
+A 2-es és 3-as típushoz a `SchedulableSubjects` **kötelezően kér** `curriculumTemplateId`-t,
+enélkül 400-at ad (`modelStateErrors`).
+
+Az órarendtervezőbe rakás/kivétel: `ScheduleSubjectAndCourses` / `UnScheduleCourse`
+(a tárgy alatti „Tervezőhöz adás” kapcsoló) — ez **nem** tárgyfelvétel, szabadon visszavonható.
+
+## Vizsgák: felvett vizsgák listája
+
+`ExamRegisteredExams/GetRegisteredExamsList?request.termId=<GUID>&sortAndPage.firstRow=0&sortAndPage.lastRow=9999`
+→ tárgyanként csoportosítva: `subjectName`, `subjectCode`, `registeredExamList[]`, benne
+`examType`, `examTutors`, `examRooms`, `fromDate`, `missed`, `justifiedMissing`, `isWaiting`,
+`strength`/`maxStrength`, és a kész **`uiDisplayState.reasons`** (pl. `["Teljesített","Megjelent","Beszámít"]`)
+— ebből egyszerű a színezés, nem kell jegyszöveget parse-olni, mint a régi NPU-ban.
+A félévek itt az `Exam/GetTerms` GUID-jai (más, mint a `SubjectApplication/Terms` numerikus id-ja).
+
+## Bejelentkezés (login oldal)
+
+`POST Account/Authenticate` payload:
+`{ userName, password, captcha, captchaIdentifier, token, subtituteGUID, LCID }`.
+A form Angular reactive form; a DOM-ban `input#userName` (lehet `readonly`) és a jelszó a
+`#password input` alatt. A submit gomb a form `button[type=submit]` eleme („Bejelentkezés”).
+Programból az érték beírása után `input` + `change` esemény kell, hogy a FormControl átvegye
+(élőben igazolva: `ng-valid ng-dirty` lesz mindkét mezőn).
+Az `Authenticate` válasz `isCaptchaRequired` / `isTwoFactorRequired` flageket is ad.
+
 ## További API-kontrollerek (bundle-grep, részleges)
 
 `Account`, `ContextUserProfile` (szűrők/oszloprendek mentése szerverre!), `Dashboard`, `DocumentContainer`, `Exam*`, `FinalExams`, `General`, `InsertImposition`, `LegalRemedy`, `Message`, `MyTrainings`, `NoteSearch`, `PayingOrganizationPartners`, `Permissions`, `PersonGroup`, `Profiles`, `Queries`, `Questionnaires`, `RequestForm(Core)`, `StudentCard`, `SubjectCourse`, `Translations`, `UserInfo`, `UserProfile`, `UserSearch`
