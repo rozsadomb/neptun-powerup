@@ -56,16 +56,26 @@ erre a repóra és **csak** issue-írásra adunk ki.
 Amíg ez nincs beállítva, az űrlap udvarias hibaüzenetet ad, és a felhasználót a
 GitHub issue-khoz irányítja — tehát semmi nem törik el.
 
-## 3. Saját domain
+## 3. Saját domain — `neptun-powerup.com`
 
-1. Cloudflare → a Worker → **Domains & Routes** → **Add** → **Custom domain**.
-2. Add meg a domaint, és kövesd a DNS-lépéseket (ha a domain is Cloudflare-nél van, egy kattintás).
-3. **Fontos:** a domain bekötése után írd át az URL-eket, különben a frissítések a régi címről érkeznének:
-   - `src/meta.txt` → `@homepageURL`, `@supportURL`, `@downloadURL`, `@updateURL`
-   - `site/index.html`, `site/visszajelzes.html`, `site/404.html` → a szövegekben szereplő címek
-   - `README.md` → a fejlécben lévő link
+A projekt címe **https://neptun-powerup.com**; a script fejléce (`src/meta.txt`) és a
+weboldal metaadatai már erre mutatnak.
 
-   Ezután emelj verziót és pushold — a meglévő telepítések így állnak át az új címre.
+A Cloudflare-oldali bekötés:
+
+1. Ha a domain még nem a Cloudflare-nél van: **Account home** → **Domains** → **Add a domain**,
+   majd a névszervereket (nameserver) állítsd át a regisztrátornál a kapott Cloudflare-esekre.
+   Ez néhány perctől pár óráig tart, amíg átáll.
+2. **Workers & Pages** → `neptun-powerup` → **Domains & Routes** → **Add** → **Custom domain**.
+3. Add meg: `neptun-powerup.com`, majd ismételd meg a `www.neptun-powerup.com` címmel is,
+   ha azt is szeretnéd (a Cloudflare a DNS-rekordot magától felveszi).
+
+Ha később mégis változna a cím, ezeket kell átírni (és utána verziót emelni + pusholni,
+különben a meglévő telepítések a régi címről próbálnának frissülni):
+
+- `src/meta.txt` → `@homepageURL`, `@supportURL`, `@downloadURL`, `@updateURL`
+- `site/index.html`, `site/visszajelzes.html` → `canonical` és `og:url`
+- `README.md` → a fejlécben lévő link
 
 ## 4. Új verzió kiadása
 
