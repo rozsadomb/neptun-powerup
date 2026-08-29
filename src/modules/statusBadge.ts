@@ -2,6 +2,7 @@ import { getSessionExpiration, isLoggedIn, isSessionLost } from "../core/api";
 import { VERSION } from "../core/env";
 import { injectCss } from "../core/dom";
 import type { NpuModule } from "../core/modules";
+import { getWatches } from "./courseWatch";
 import { lastRefresh } from "./keepAlive";
 
 // Small fixed badge showing that NPU is active, plus session status. Lives
@@ -40,6 +41,7 @@ export const statusBadge: NpuModule = {
       #npu-badge b { font-weight: 600; }
       #npu-badge .npu-ok { color: #7ee787; }
       #npu-badge .npu-warn { color: #ffc9c9; }
+      #npu-badge .npu-watch { color: #ffd8a8; }
     `);
     const badge = document.createElement("div");
     badge.id = "npu-badge";
@@ -52,9 +54,11 @@ export const statusBadge: NpuModule = {
         const refreshed = lastRefresh
           ? `frissítve ${lastRefresh.toLocaleTimeString("hu-HU", { hour: "2-digit", minute: "2-digit" })}`
           : "aktív";
+        const watchCount = Object.keys(getWatches()).length;
+        const watching = watchCount > 0 ? ` · <span class="npu-watch">🔔 ${watchCount} figyelve</span>` : "";
         badge.innerHTML =
           `<b>NPU ${VERSION}</b> · munkamenet: ${formatRemaining(getSessionExpiration())} · ` +
-          `<span class="npu-ok">kidobásvédelem ${refreshed}</span>`;
+          `<span class="npu-ok">kidobásvédelem ${refreshed}</span>${watching}`;
       } else {
         badge.innerHTML = `<b>NPU ${VERSION}</b>`;
       }
