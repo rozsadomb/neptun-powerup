@@ -10,6 +10,7 @@ import { keepAlive } from "./modules/keepAlive";
 import { pageTitle } from "./modules/pageTitle";
 import { popupDismiss } from "./modules/popupDismiss";
 import { quickSignup } from "./modules/quickSignup";
+import { settingsPanel } from "./modules/settingsPanel";
 import { statusBadge } from "./modules/statusBadge";
 import { subjectAutoSearch } from "./modules/subjectAutoSearch";
 import { subjectInlineControls } from "./modules/subjectInlineControls";
@@ -47,6 +48,7 @@ function looksLikeNeptun(): boolean {
   runModules([
     keepAlive,
     statusBadge,
+    settingsPanel,
     pageTitle,
     popupDismiss,
     backToLastPage,

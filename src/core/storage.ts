@@ -46,6 +46,12 @@ export function get<T>(...keys: string[]): T | undefined {
   return current as T;
 }
 
+/** Wipes every stored NPU setting (watches, term memory, logins, panels...). */
+export function resetAll(): void {
+  data = {};
+  save();
+}
+
 export function set(...keysAndValue: [...string[], unknown]): void {
   const value = keysAndValue[keysAndValue.length - 1];
   const keys = keysAndValue.slice(0, -1) as string[];
