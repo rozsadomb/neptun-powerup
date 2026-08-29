@@ -25,7 +25,8 @@ A régi NPU a régi ASP.NET WebForms felületre épült és azzal együtt nyugd�
 - **Felugró ablakok elnyelése** – a visszatérő tájékoztató ablakokat (amelyeken csak egy „Rendben” gomb és egy „Ne jelenjen meg többször” jelölő van) magától becsukja. Biztonsági szabály: amin két gomb van — tehát valódi döntés, például a tárgyfelvétel megerősítése — ahhoz soha nem nyúl.
 - **Oldalcím a böngészőfülön** – a fül nem „Neptun Web”, hanem pl. „Tárgyfelvétel · Neptun”, így több fül közt is látod, melyik micsoda.
 - **Belépés után vissza az utolsó oldalra** – bekapcsolható a bejelentkezési oldalon (NPU jelölőnégyzet): belépés után nem a kezdőoldalra, hanem oda kerülsz vissza, ahol legutóbb jártál.
-- **Állapotjelző** – kis jelvény a jobb alsó sarokban: NPU verzió, munkamenet hátralévő ideje, utolsó frissítés.
+- **Beállítások panel** – a jobb alsó jelvény ⚙ gombjával nyílik: modulonként ki- és bekapcsolhatod a funkciókat, **azonnali hatállyal** (a kikapcsolt modul cleanupja lefut, újratöltés nélkül). A választás megmarad. Van benne egy „Minden NPU-adat törlése” gomb is (megerősítéssel), ami visszaállít gyári állapotra.
+- **Állapotjelző** – kis jelvény a jobb alsó sarokban: NPU verzió, munkamenet hátralévő ideje, utolsó frissítés, figyelt kurzusok száma és a beállítások ⚙ gombja.
 
 > **Figyelem:** a belépési adatokat a szkript – a régi NPU-hoz hasonlóan – titkosítás nélkül (base64) tárolja a saját gépeden. Csak olyan gépen használd, amelyhez más nem fér hozzá.
 

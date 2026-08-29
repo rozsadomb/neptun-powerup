@@ -1,8 +1,11 @@
 import { log } from "./env";
-import { onRouteChange } from "./router";
+import { currentPath, onRouteChange } from "./router";
+import { isModuleEnabled, SETTINGS_EVENT } from "./settings";
 
 // A module either runs globally (activated once) or is scoped to routes:
 // activated when the route matches, cleaned up when the user navigates away.
+// The settings panel can disable modules; a toggle takes effect immediately
+// (the runner re-evaluates and runs the module's cleanup).
 
 export interface NpuModule {
   id: string;
@@ -11,15 +14,18 @@ export interface NpuModule {
   matches(path: string): boolean;
   // Called when the module becomes active. May return a cleanup function.
   activate(): void | (() => void) | Promise<void | (() => void)>;
+  // Not listed in and not disableable from the settings panel (the panel
+  // itself, and the badge that opens it).
+  alwaysOn?: boolean;
 }
 
 export function runModules(modules: NpuModule[]): void {
   const cleanups = new Map<string, () => void>();
   const active = new Set<string>();
 
-  onRouteChange(path => {
+  const evaluate = (path: string) => {
     for (const module of modules) {
-      const shouldBeActive = module.matches(path);
+      const shouldBeActive = (module.alwaysOn || isModuleEnabled(module.id)) && module.matches(path);
       if (shouldBeActive && !active.has(module.id)) {
         active.add(module.id);
         Promise.resolve(module.activate())
@@ -55,5 +61,8 @@ export function runModules(modules: NpuModule[]): void {
         log(`module ${module.id} deactivated`);
       }
     }
-  });
+  };
+
+  onRouteChange(evaluate);
+  document.addEventListener(SETTINGS_EVENT, () => evaluate(currentPath()));
 }
