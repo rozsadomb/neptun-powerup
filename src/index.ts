@@ -9,6 +9,7 @@ import { keepAlive } from "./modules/keepAlive";
 import { quickSignup } from "./modules/quickSignup";
 import { statusBadge } from "./modules/statusBadge";
 import { subjectAutoSearch } from "./modules/subjectAutoSearch";
+import { subjectInlineControls } from "./modules/subjectInlineControls";
 
 (async () => {
   if (!location.pathname.startsWith("/hallgatoi")) {
@@ -22,5 +23,14 @@ import { subjectAutoSearch } from "./modules/subjectAutoSearch";
   await storage.initialize();
   log(`Neptun PowerUp! NG v${VERSION} starting`);
   initRouter();
-  runModules([keepAlive, statusBadge, courseWatch, subjectAutoSearch, examOverview, quickSignup, autoLogin]);
+  runModules([
+    keepAlive,
+    statusBadge,
+    courseWatch,
+    subjectAutoSearch,
+    subjectInlineControls,
+    examOverview,
+    quickSignup,
+    autoLogin,
+  ]);
 })();
