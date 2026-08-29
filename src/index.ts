@@ -13,6 +13,11 @@ import { subjectAutoSearch } from "./modules/subjectAutoSearch";
   if (!location.pathname.startsWith("/hallgatoi")) {
     return;
   }
+  // A same-origin iframe would otherwise get a second full instance, with its
+  // own polling and its own token refreshes racing the main one.
+  if (window.top !== window.self) {
+    return;
+  }
   await storage.initialize();
   log(`Neptun PowerUp! NG v${VERSION} starting`);
   initRouter();

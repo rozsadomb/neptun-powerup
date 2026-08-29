@@ -1,4 +1,4 @@
-import { getSessionExpiration, isLoggedIn } from "../core/api";
+import { getSessionExpiration, isLoggedIn, isSessionLost } from "../core/api";
 import { VERSION } from "../core/env";
 import { injectCss } from "../core/dom";
 import type { NpuModule } from "../core/modules";
@@ -36,13 +36,16 @@ export const statusBadge: NpuModule = {
       }
       #npu-badge b { font-weight: 600; }
       #npu-badge .npu-ok { color: #7ee787; }
+      #npu-badge .npu-warn { color: #ffc9c9; }
     `);
     const badge = document.createElement("div");
     badge.id = "npu-badge";
     document.body.appendChild(badge);
 
     const render = () => {
-      if (isLoggedIn()) {
+      if (isSessionLost()) {
+        badge.innerHTML = `<b>NPU ${VERSION}</b> · <span class="npu-warn">a munkamenet lejárt, lépj be újra</span>`;
+      } else if (isLoggedIn()) {
         const refreshed = lastRefresh
           ? `frissítve ${lastRefresh.toLocaleTimeString("hu-HU", { hour: "2-digit", minute: "2-digit" })}`
           : "aktív";

@@ -1,12 +1,19 @@
-import { getAccessToken, getTokenExpiration, isLoggedIn, refreshTokens } from "../core/api";
+import { getAccessToken, getTokenExpiration, isLoggedIn, isSessionLost, noteExternalRefresh, refreshTokens } from "../core/api";
 import { log } from "../core/env";
 import type { NpuModule } from "../core/modules";
+import { onApiCall } from "../core/netHook";
 
 // Keeps the session alive indefinitely: refreshes the access token shortly
 // before it expires, which also renews the 30-minute server session window.
+//
+// The server rotates the refresh cookie, so racing the app's own refresh gets
+// one of the two a 401 and logs the user out. We therefore watch the app's
+// requests and stand down whenever it refreshes by itself, and we let the
+// page settle before our first check.
 
 const CHECK_INTERVAL_MS = 20_000;
 const REFRESH_MARGIN_MS = 120_000;
+const STARTUP_DELAY_MS = 5_000;
 
 export let lastRefresh: Date | null = null;
 
@@ -24,7 +31,7 @@ function nudgeAppCountdown(): void {
 
 async function tick(): Promise<void> {
   const token = getAccessToken();
-  if (!token) {
+  if (!token || isSessionLost()) {
     return;
   }
   const expiration = getTokenExpiration(token);
@@ -43,8 +50,24 @@ export const keepAlive: NpuModule = {
   id: "keepAlive",
   matches: () => isLoggedIn(),
   activate() {
-    void tick();
+    // When the app refreshes tokens itself, the cookie has already rotated —
+    // taking our own turn right after would spend a stale cookie.
+    const unsubscribe = onApiCall(call => {
+      if (call.path === "Account/GetNewTokens") {
+        noteExternalRefresh();
+        if (call.status >= 200 && call.status < 300) {
+          lastRefresh = new Date();
+        }
+      }
+    });
+
+    // Give the app time to finish its own startup refresh before we act.
+    const startup = window.setTimeout(() => void tick(), STARTUP_DELAY_MS);
     const timer = window.setInterval(() => void tick(), CHECK_INTERVAL_MS);
-    return () => window.clearInterval(timer);
+    return () => {
+      unsubscribe();
+      window.clearTimeout(startup);
+      window.clearInterval(timer);
+    };
   },
 };

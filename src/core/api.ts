@@ -38,21 +38,73 @@ export function getSessionExpiration(): Date | null {
   return value ? new Date(value) : null;
 }
 
-// Requests a new access token. The endpoint accepts an expired Bearer token;
-// what matters is the HttpOnly refresh cookie. Returns the new session
-// timeout in minutes, or null on failure.
-export async function refreshTokens(): Promise<number | null> {
+// The server ROTATES the refresh cookie: every successful GetNewTokens issues
+// a new one and invalidates the previous. Two refreshes racing each other
+// therefore make the loser send an already-spent cookie, get a 401 — and
+// Neptun logs the user out. All refreshes must be serialised, both within
+// this tab and across tabs, and we must stay out of the app's way when it
+// refreshes on its own.
+
+const REFRESH_LOCK_KEY = "npu-ng:refresh-lock";
+// How long another refresher is assumed to still be in flight.
+const LOCK_TTL_MS = 5_000;
+// After someone else refreshed, our token in sessionStorage is stale but the
+// cookie is fresh; wait this long before refreshing again ourselves.
+const EXTERNAL_QUIET_MS = 10_000;
+
+let refreshInFlight: Promise<number | null> | null = null;
+let lastExternalRefreshAt = 0;
+let sessionLost = false;
+
+/** Called when the app itself was seen refreshing tokens, so we back off. */
+export function noteExternalRefresh(): void {
+  lastExternalRefreshAt = Date.now();
+}
+
+/** True once a refresh came back 401: the session is gone, stop hammering. */
+export function isSessionLost(): boolean {
+  return sessionLost;
+}
+
+function otherTabRefreshing(): boolean {
+  try {
+    const raw = localStorage.getItem(REFRESH_LOCK_KEY);
+    if (!raw) {
+      return false;
+    }
+    const at = Number(raw);
+    return Number.isFinite(at) && Date.now() - at < LOCK_TTL_MS;
+  } catch {
+    return false;
+  }
+}
+
+function takeLock(): void {
+  try {
+    localStorage.setItem(REFRESH_LOCK_KEY, String(Date.now()));
+  } catch {
+    // storage may be unavailable; serialising within the tab still helps
+  }
+}
+
+async function doRefresh(): Promise<number | null> {
   const token = getAccessToken();
   if (!token) {
     return null;
   }
+  takeLock();
   const response = await fetch(`${API_BASE}Account/GetNewTokens`, {
     method: "POST",
     credentials: "include",
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!response.ok) {
-    log(`Token refresh failed with status ${response.status}`);
+    if (response.status === 401) {
+      sessionLost = true;
+      log("token refresh rejected (401) — the session is no longer valid");
+    } else {
+      log(`Token refresh failed with status ${response.status}`);
+    }
     return null;
   }
   const result = (await response.json()) as { accessToken: string; sessionTimeoutInMinutes: number };
@@ -63,7 +115,29 @@ export async function refreshTokens(): Promise<number | null> {
   }
   const sessionExp = new Date(Date.now() + result.sessionTimeoutInMinutes * 60_000);
   sessionStorage.setItem(SESSION_EXP_KEY, sessionExp.toISOString());
+  takeLock();
   return result.sessionTimeoutInMinutes;
+}
+
+/**
+ * Requests a new access token. Concurrent callers share one request; if
+ * another tab or the app itself refreshed a moment ago, this is a no-op so
+ * the rotated cookie is never used twice.
+ */
+export function refreshTokens(): Promise<number | null> {
+  if (sessionLost) {
+    return Promise.resolve(null);
+  }
+  if (refreshInFlight) {
+    return refreshInFlight;
+  }
+  if (Date.now() - lastExternalRefreshAt < EXTERNAL_QUIET_MS || otherTabRefreshing()) {
+    return Promise.resolve(null);
+  }
+  refreshInFlight = doRefresh().finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
 }
 
 // Refreshes the access token if it expires within the given margin.

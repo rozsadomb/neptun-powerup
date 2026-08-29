@@ -1,16 +1,28 @@
 import { api, ApiError, apiPost } from "../core/api";
 import { log } from "../core/env";
 import type { NpuModule } from "../core/modules";
+import { observedCallCount, onApiCall } from "../core/netHook";
 import { el, createPanel } from "../core/ui";
 
 // One-click registration of the courses planned in the built-in schedule
-// planner (Órarendtervező). Everything comes from GetScheduledCourses, which
-// returns both planned courses (scheduledCourseId set, not yet registered)
-// and already registered ones. Note that the signin payload needs the course
-// id (`id`), NOT the planner record id (`scheduledCourseId`) — the app's own
-// signin code sends the ids of the course rows.
-// Every signin requires an explicit confirmation; optional auto-retry keeps
-// trying full courses.
+// planner (Órarendtervező).
+//
+// The signin payload needs the course id (`id`), NOT the planner record id
+// (`scheduledCourseId`) — the app's own signin code sends the ids of the
+// course rows. Query parameters take the numeric term id, the payload the
+// term GUID.
+//
+// The panel tracks the planner live: the user adds and removes courses on
+// this same SPA page, so a one-shot render goes stale immediately. Changes
+// are detected two ways — instantly from the app's own API calls, and by
+// polling a cheap endpoint as a fallback for when the hook cannot observe
+// the page (isolated userscript world). Rendering reconciles existing cards
+// instead of rebuilding them, so a refresh never disturbs a running
+// auto-retry or an in-flight signin.
+//
+// No feedback loop: refresh() only issues GETs, and none of those paths are
+// in MUTATING_PATHS. Our own SubjectSignin does match, which costs exactly
+// one extra refresh — by design, since the planner did change.
 
 interface SubjectTerm {
   text: string;
@@ -28,17 +40,23 @@ interface ScheduledCourse {
   title: string;
   code: string;
   type: string;
-  tutorName: string;
   subjectCredit: number;
   isRegistered: boolean;
   isFull: boolean;
   strength: number;
   maxLimit: number | null;
   waitingStudentsCount: number;
-  willBeOnWaitingList: boolean;
+}
+
+interface PlannedSubjectLite {
+  id: string;
+  curriculumTemplateLineId: string;
+  isRegistered: boolean;
+  scheduledCourseIds: string[];
 }
 
 interface PlannedSubject {
+  key: string;
   subjectId: string;
   curriculumTemplateId: string;
   curriculumTemplateLineId: string;
@@ -53,8 +71,53 @@ interface SigninResult {
   isWaiting: boolean;
 }
 
+// Card state lives outside the DOM so re-rendering cannot lose it.
+interface Card {
+  subject: PlannedSubject;
+  /** Identity of the course set the user last saw and confirmed against. */
+  courseSignature: string;
+  element: HTMLElement;
+  coursesBox: HTMLElement;
+  actions: HTMLElement;
+  errorBox: HTMLElement;
+  attempts: number;
+  status: "idle" | "signing" | "done";
+  retryEnabled: boolean;
+  retryTimer?: number;
+}
+
 const RETRY_INTERVAL_MS = 10_000;
 const MAX_RETRIES = 30;
+// Coalesce bursts: removing a subject with several courses fires one
+// UnScheduleCourse per course, and each would otherwise trigger a render of a
+// half-removed subject.
+const HOOK_DEBOUNCE_MS = 400;
+// The lightweight planner endpoint is ~0.9 KB, so polling it is cheap. Once
+// the hook is proven to work it only needs to be a safety net.
+const POLL_FAST_MS = 6_000;
+const POLL_SLOW_MS = 30_000;
+// Course head counts only come from the heavy endpoint; refresh them rarely.
+const DETAIL_REFRESH_MS = 30_000;
+
+const MUTATING_PATHS = [
+  "SubjectApplication/ScheduleSubjectAndCourses",
+  "SubjectApplication/UnScheduleCourse",
+  "SubjectApplication/DeleteAllScheduledScheduledSubjects",
+  "SubjectApplication/SubjectSignin",
+  "SubjectApplication/SubjectSignout",
+  "SubjectApplication/CourseChange",
+];
+
+function subjectKey(subjectId: string, lineId: string): string {
+  return `${subjectId}|${lineId}`;
+}
+
+function courseSignatureOf(courses: { id: string }[]): string {
+  return courses
+    .map(course => course.id)
+    .sort()
+    .join(",");
+}
 
 // Groups planned (not yet registered) courses into per-subject entries.
 function groupPlannedSubjects(courses: ScheduledCourse[]): PlannedSubject[] {
@@ -62,13 +125,14 @@ function groupPlannedSubjects(courses: ScheduledCourse[]): PlannedSubject[] {
   courses
     .filter(course => course.scheduledCourseId !== null && !course.isRegistered)
     .forEach(course => {
-      const key = `${course.subjectId}|${course.curriculumTemplateLineId}`;
+      const key = subjectKey(course.subjectId, course.curriculumTemplateLineId);
       const group = groups.get(key);
       if (group) {
         group.courses.push(course);
         return;
       }
       groups.set(key, {
+        key,
         subjectId: course.subjectId,
         curriculumTemplateId: course.curriculumTemplateId,
         curriculumTemplateLineId: course.curriculumTemplateLineId,
@@ -79,6 +143,14 @@ function groupPlannedSubjects(courses: ScheduledCourse[]): PlannedSubject[] {
       });
     });
   return [...groups.values()];
+}
+
+// Identity of the current planner contents; used to skip needless re-renders.
+function signatureOf(subjects: { key: string; courseIds: string[] }[]): string {
+  return subjects
+    .map(s => `${s.key}:${[...s.courseIds].sort().join(",")}`)
+    .sort()
+    .join("|");
 }
 
 function signin(subject: PlannedSubject): Promise<SigninResult> {
@@ -104,152 +176,412 @@ export const quickSignup: NpuModule = {
   activate() {
     const panel = createPanel("npu-quick-signup", "NPU · Gyorsfelvétel");
     let destroyed = false;
-    const retryTimers = new Map<string, number>();
 
-    const stopRetry = (key: string) => {
-      const timer = retryTimers.get(key);
-      if (timer !== undefined) {
-        window.clearInterval(timer);
-        retryTimers.delete(key);
+    const header = el(`<div class="npu-note">Betervezett kurzusok betöltése...</div>`);
+    const list = el(`<div class="npu-list"></div>`);
+    const emptyNote = el(
+      `<div class="npu-note" style="display:none">Nincs betervezett kurzus. Tervezz be kurzusokat az ` +
+        `Órarendtervezőben (a tárgy alatti „Tervezőhöz adás” kapcsolóval), és itt egy kattintással ` +
+        `felveheted őket.</div>`
+    );
+    // Kept in the layout even when unusable, so cards never jump under the
+    // cursor when the count crosses the threshold.
+    const allButton = el(
+      `<button class="npu-button" style="width:100%; visibility:hidden"></button>`
+    ) as HTMLButtonElement;
+    panel.body.append(header, allButton, list, emptyNote);
+
+    const cards = new Map<string, Card>();
+    // Every timer we ever arm, so cleanup can clear one that was armed by a
+    // signin which settled after cleanup started.
+    const timers = new Set<number>();
+    let term: SubjectTerm | null = null;
+    let lastSignature: string | null = null;
+    let lastDetailFetch = 0;
+    let refreshing = false;
+    let refreshQueued = false;
+    let consecutiveErrors = 0;
+    let debounceTimer: number | undefined;
+    let pendingSubjects: PlannedSubject[] | null = null;
+    let wasVisible = document.visibilityState === "visible";
+
+    const stopRetry = (card: Card) => {
+      if (card.retryTimer !== undefined) {
+        window.clearInterval(card.retryTimer);
+        timers.delete(card.retryTimer);
+        card.retryTimer = undefined;
       }
     };
 
-    const renderSubject = (subject: PlannedSubject): HTMLElement => {
-      const key = `${subject.subjectId}|${subject.curriculumTemplateLineId}`;
-      const anyFull = subject.courses.some(course => course.isFull);
-      const item = el(
-        `<div class="npu-item npu-item--${anyFull ? "yellow" : "blue"}">` +
-          `<div class="npu-item__title">${subject.title}</div>` +
-          `<div class="npu-item__meta">${subject.credit} kredit</div>` +
-          subject.courses.map(c => `<div class="npu-item__meta">${describeCourse(c)}</div>`).join("") +
-          `<div class="npu-actions" style="margin-top:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap"></div>` +
-          `<div class="npu-error" style="display:none"></div>` +
-          `</div>`
-      );
-      const actions = item.querySelector<HTMLElement>(".npu-actions")!;
-      const errorBox = item.querySelector<HTMLElement>(".npu-error")!;
-
-      const button = el(`<button class="npu-button">Felvétel</button>`) as HTMLButtonElement;
+    const renderActions = (card: Card): void => {
+      card.actions.innerHTML = "";
+      if (card.status === "done") {
+        return;
+      }
+      const button = el(
+        `<button class="npu-button">${card.attempts > 0 ? "Újra" : "Felvétel"}</button>`
+      ) as HTMLButtonElement;
       const retryLabel = el(
         `<label class="npu-item__meta" style="display:flex;align-items:center;gap:4px;cursor:pointer">` +
           `<input type="checkbox" class="npu-retry">auto-újrapróba</label>`
       );
       const retryBox = retryLabel.querySelector<HTMLInputElement>(".npu-retry")!;
-      actions.appendChild(button);
-      actions.appendChild(retryLabel);
-
-      let attempts = 0;
-      const attempt = async (viaRetry: boolean) => {
-        attempts++;
-        button.disabled = true;
-        button.textContent = viaRetry ? `Próba #${attempts}...` : "Felvétel...";
-        try {
-          const result = await signin(subject);
-          stopRetry(key);
-          item.className = "npu-item npu-item--green";
-          actions.innerHTML = "";
-          errorBox.style.display = "none";
-          actions.appendChild(
-            el(
-              `<span class="npu-item__meta">${result.isWaiting ? "várólistára kerültél" : "sikeresen felvéve ✓"}</span>`
-            )
-          );
-          log(`subject ${subject.title} signed in (waiting: ${result.isWaiting})`);
-        } catch (error) {
-          const message = error instanceof ApiError ? error.message : String(error);
-          errorBox.textContent = `${new Date().toLocaleTimeString("hu-HU")} · ${message}`;
-          errorBox.style.display = "block";
-          button.disabled = false;
-          button.textContent = "Újra";
-          if (retryBox.checked && attempts < MAX_RETRIES && !retryTimers.has(key)) {
-            const timer = window.setInterval(() => {
-              if (destroyed || !retryBox.checked || attempts >= MAX_RETRIES) {
-                stopRetry(key);
-                return;
-              }
-              void attempt(true);
-            }, RETRY_INTERVAL_MS);
-            retryTimers.set(key, timer);
-          }
-        }
-      };
+      retryBox.checked = card.retryEnabled;
+      button.disabled = card.status === "signing";
 
       button.addEventListener("click", () => {
-        const skipConfirm = attempts > 0 || button.dataset.skipConfirm === "1";
-        delete button.dataset.skipConfirm;
+        // Snapshot what the user is looking at: a refresh must never swap the
+        // course set out from under an approved signin.
+        const subject = card.subject;
         const courseList = subject.courses.map(c => c.code).join(", ");
-        if (skipConfirm || confirm(`Felveszed a(z) "${subject.title}" tárgyat?\n\nKurzusok: ${courseList}`)) {
-          void attempt(false);
+        // Always confirm, including retries: a click that landed on the wrong
+        // card (after a refresh shifted the list) must not register anything.
+        if (confirm(`Felveszed a(z) "${subject.title}" tárgyat?\n\nKurzusok: ${courseList}`)) {
+          void attemptSignin(card, subject, false);
         }
       });
       retryBox.addEventListener("change", () => {
-        if (!retryBox.checked) {
-          stopRetry(key);
+        card.retryEnabled = retryBox.checked;
+        if (!card.retryEnabled) {
+          stopRetry(card);
         }
       });
-      return item;
+      card.actions.append(button, retryLabel);
     };
 
-    const render = async () => {
-      panel.body.innerHTML = "";
-      const status = el(`<div class="npu-note">Betervezett kurzusok betöltése...</div>`);
-      panel.body.appendChild(status);
+    const attemptSignin = async (card: Card, subject: PlannedSubject, viaRetry: boolean) => {
+      card.attempts++;
+      card.status = "signing";
+      const button = card.actions.querySelector<HTMLButtonElement>(".npu-button");
+      if (button) {
+        button.disabled = true;
+        button.textContent = viaRetry ? `Próba #${card.attempts}...` : "Felvétel...";
+      }
       try {
-        const terms = await api<SubjectTerm[]>("SubjectApplication/Terms");
-        const term = terms.find(t => t.isActualTerm) ?? terms[0];
-        if (destroyed || !term) {
+        const result = await signin(subject);
+        stopRetry(card);
+        card.status = "done";
+        card.retryEnabled = false;
+        card.element.className = "npu-item npu-item--green";
+        card.errorBox.style.display = "none";
+        card.actions.innerHTML = "";
+        card.actions.appendChild(
+          el(`<span class="npu-item__meta">${result.isWaiting ? "várólistára kerültél" : "sikeresen felvéve ✓"}</span>`)
+        );
+        log(`subject ${subject.title} signed in (waiting: ${result.isWaiting})`);
+        void refresh({ force: true });
+      } catch (error) {
+        card.status = "idle";
+        const message = error instanceof ApiError ? error.message : String(error);
+        card.errorBox.textContent = `${new Date().toLocaleTimeString("hu-HU")} · ${message}`;
+        card.errorBox.style.display = "block";
+        renderActions(card);
+        // Never arm a timer after cleanup: nothing would be left to clear it.
+        if (!destroyed && card.retryEnabled && card.attempts < MAX_RETRIES && card.retryTimer === undefined) {
+          const timer = window.setInterval(() => {
+            if (destroyed || !card.retryEnabled || card.attempts >= MAX_RETRIES || card.status === "done") {
+              stopRetry(card);
+              return;
+            }
+            if (card.status === "signing") {
+              return; // a previous attempt is still in flight
+            }
+            void attemptSignin(card, card.subject, true);
+          }, RETRY_INTERVAL_MS);
+          card.retryTimer = timer;
+          timers.add(timer);
+        }
+      }
+    };
+
+    const createCard = (subject: PlannedSubject): Card => {
+      const element = el(
+        `<div class="npu-item">` +
+          `<div class="npu-item__title"></div>` +
+          `<div class="npu-item__meta npu-credit"></div>` +
+          `<div class="npu-courses"></div>` +
+          `<div class="npu-actions" style="margin-top:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap"></div>` +
+          `<div class="npu-error" style="display:none"></div>` +
+          `</div>`
+      );
+      const card: Card = {
+        subject,
+        courseSignature: courseSignatureOf(subject.courses),
+        element,
+        coursesBox: element.querySelector<HTMLElement>(".npu-courses")!,
+        actions: element.querySelector<HTMLElement>(".npu-actions")!,
+        errorBox: element.querySelector<HTMLElement>(".npu-error")!,
+        attempts: 0,
+        status: "idle",
+        retryEnabled: false,
+      };
+      renderActions(card);
+      return card;
+    };
+
+    // Updates the parts of a card that can change while it stays on screen.
+    const updateCard = (card: Card, subject: PlannedSubject): void => {
+      const signature = courseSignatureOf(subject.courses);
+      // A different course set is a different thing to register: cancel any
+      // armed retry and require a fresh confirmation, or we would silently
+      // sign the user up for courses they never approved.
+      if (signature !== card.courseSignature && card.status !== "done") {
+        stopRetry(card);
+        card.attempts = 0;
+        card.retryEnabled = false;
+        card.errorBox.style.display = "none";
+        card.errorBox.textContent = "";
+        card.courseSignature = signature;
+        card.subject = subject;
+        renderActions(card);
+      }
+      card.subject = subject;
+      card.courseSignature = signature;
+      card.element.querySelector<HTMLElement>(".npu-item__title")!.textContent = subject.title;
+      card.element.querySelector<HTMLElement>(".npu-credit")!.textContent = `${subject.credit} kredit`;
+
+      const description = subject.courses.map(describeCourse).join("\n");
+      if (card.coursesBox.dataset.description !== description) {
+        card.coursesBox.dataset.description = description;
+        card.coursesBox.innerHTML = "";
+        subject.courses.forEach(course => {
+          const row = document.createElement("div");
+          row.className = "npu-item__meta";
+          // textContent, not innerHTML: these strings come from the server.
+          row.textContent = describeCourse(course);
+          card.coursesBox.appendChild(row);
+        });
+      }
+      if (card.status !== "done") {
+        card.element.className = `npu-item npu-item--${subject.courses.some(c => c.isFull) ? "yellow" : "blue"}`;
+      }
+    };
+
+    const applySubjects = (subjects: PlannedSubject[]): void => {
+      const incoming = new Map(subjects.map(subject => [subject.key, subject]));
+
+      cards.forEach((card, key) => {
+        const subject = incoming.get(key);
+        if (!subject) {
+          // Cards mid-signin stay; a finished one stays as the receipt of
+          // what just happened.
+          if (card.status === "signing" || card.status === "done") {
+            return;
+          }
+          stopRetry(card);
+          card.element.remove();
+          cards.delete(key);
           return;
         }
+        // A subject that is planned again after we registered it (e.g. the
+        // user signed out) must become actionable instead of staying a green
+        // receipt with no buttons.
+        if (card.status === "done") {
+          card.status = "idle";
+          card.attempts = 0;
+          card.retryEnabled = false;
+          card.courseSignature = "";
+          card.errorBox.style.display = "none";
+          renderActions(card);
+        }
+      });
+
+      subjects.forEach(subject => {
+        const existing = cards.get(subject.key);
+        if (existing) {
+          updateCard(existing, subject);
+          return;
+        }
+        const card = createCard(subject);
+        updateCard(card, subject);
+        cards.set(subject.key, card);
+        list.appendChild(card.element);
+      });
+
+      const registerable = [...cards.values()].filter(card => card.status === "idle");
+      emptyNote.style.display = cards.size === 0 ? "block" : "none";
+      allButton.style.visibility = registerable.length > 1 ? "visible" : "hidden";
+      allButton.disabled = registerable.length < 2;
+      allButton.textContent = `Mindet felveszi (${registerable.length})`;
+    };
+
+    // Destructive DOM changes are deferred while the pointer is over the
+    // panel, so cards never shift out from under a click.
+    const reconcile = (subjects: PlannedSubject[]): void => {
+      if (panel.body.matches(":hover")) {
+        pendingSubjects = subjects;
+        return;
+      }
+      pendingSubjects = null;
+      applySubjects(subjects);
+    };
+
+    const flushPending = () => {
+      if (pendingSubjects && !destroyed) {
+        const subjects = pendingSubjects;
+        pendingSubjects = null;
+        applySubjects(subjects);
+      }
+    };
+    panel.body.addEventListener("mouseleave", flushPending);
+
+    allButton.addEventListener("click", () => {
+      const registerable = [...cards.values()].filter(card => card.status === "idle");
+      if (registerable.length === 0) {
+        return;
+      }
+      if (confirm(`Mind a(z) ${registerable.length} betervezett tárgyat felveszed?`)) {
+        // Sequential, not parallel: Neptun handles one signin at a time and
+        // parallel calls would also stampede the token refresh.
+        void (async () => {
+          for (const card of registerable) {
+            if (destroyed) {
+              return;
+            }
+            await attemptSignin(card, card.subject, false);
+          }
+        })();
+      }
+    });
+
+    const setHeader = (text: string, isError = false) => {
+      header.textContent = text;
+      header.className = isError ? "npu-error" : "npu-note";
+    };
+
+    const refresh = async (options: { force?: boolean } = {}): Promise<void> => {
+      if (destroyed) {
+        return;
+      }
+      if (refreshing) {
+        refreshQueued = true;
+        return;
+      }
+      refreshing = true;
+      try {
+        if (!term) {
+          const terms = await api<SubjectTerm[]>("SubjectApplication/Terms");
+          term = terms.find(t => t.isActualTerm) ?? terms[0] ?? null;
+          if (!term) {
+            consecutiveErrors++;
+            setHeader("Nem található aktuális félév.", true);
+            return;
+          }
+        }
+        if (destroyed) {
+          return;
+        }
+
+        // Cheap check first: has the set of planned courses changed at all?
+        let signature: string | null = null;
+        try {
+          const lite = await api<PlannedSubjectLite[]>(
+            `SubjectApplication/ScheduledSubjectsWithScheduledCourses?request.termId=${term.value}`
+          );
+          signature = signatureOf(
+            (lite ?? [])
+              .filter(subject => !subject.isRegistered)
+              .map(subject => ({
+                key: subjectKey(subject.id, subject.curriculumTemplateLineId),
+                courseIds: subject.scheduledCourseIds ?? [],
+              }))
+          );
+        } catch {
+          // Unknown, not "changed": treating a failure as a change would pin
+          // the expensive endpoint to the fast poll interval.
+        }
+        if (destroyed) {
+          return;
+        }
+
+        const detailsStale = Date.now() - lastDetailFetch > DETAIL_REFRESH_MS;
+        const changed = signature !== null && signature !== lastSignature;
+        if (!changed && !detailsStale && !options.force) {
+          consecutiveErrors = 0;
+          return;
+        }
+
         const courses = await api<ScheduledCourse[]>(
           `SubjectApplication/GetScheduledCourses?request.termId=${term.value}`
         );
         if (destroyed) {
           return;
         }
-        status.remove();
-        const subjects = groupPlannedSubjects(courses ?? []);
-        panel.body.appendChild(
-          el(`<div class="npu-note">${term.text} · Órarendtervezőbe betervezett, még fel nem vett tárgyak:</div>`)
+        lastDetailFetch = Date.now();
+        lastSignature = signature;
+        consecutiveErrors = 0;
+        reconcile(groupPlannedSubjects(courses ?? []));
+        setHeader(
+          `${term.text} · Órarendtervezőbe betervezett, még fel nem vett tárgyak ` +
+            `(frissítve ${new Date().toLocaleTimeString("hu-HU")})`
         );
-        if (subjects.length === 0) {
-          panel.body.appendChild(
-            el(
-              `<div class="npu-note">Nincs betervezett kurzus. Tervezz be kurzusokat az Órarendtervezőben ` +
-                `(vagy a tárgy alatti „Tervezőhöz adás” kapcsolóval), és itt egy kattintással felveheted őket.</div>`
-            )
-          );
-        } else {
-          subjects.forEach(subject => panel.body.appendChild(renderSubject(subject)));
-          if (subjects.length > 1) {
-            const all = el(`<button class="npu-button" style="width:100%">Mindet felveszi (${subjects.length})</button>`);
-            all.addEventListener("click", () => {
-              if (confirm(`Mind a(z) ${subjects.length} betervezett tárgyat felveszed?`)) {
-                panel.body.querySelectorAll<HTMLButtonElement>(".npu-item .npu-button").forEach(button => {
-                  if (button.textContent === "Felvétel") {
-                    button.dataset.skipConfirm = "1";
-                    button.click();
-                  }
-                });
-              }
-            });
-            panel.body.insertBefore(all, panel.body.children[1]);
-          }
-        }
-        const refresh = el(`<button class="npu-button npu-button--subtle" style="margin-top:6px">Frissítés</button>`);
-        refresh.addEventListener("click", () => void render());
-        panel.body.appendChild(refresh);
       } catch (error) {
-        status.textContent = `Hiba: ${error instanceof Error ? error.message : error}`;
-        status.className = "npu-error";
+        // A single hiccup during the registration rush should not make the
+        // panel flash red every few seconds.
+        consecutiveErrors++;
+        if (consecutiveErrors >= 3) {
+          setHeader(`Hiba: ${error instanceof Error ? error.message : error}`, true);
+        }
+      } finally {
+        refreshing = false;
+        if (refreshQueued && !destroyed) {
+          refreshQueued = false;
+          void refresh({ force: true });
+        }
       }
     };
 
-    void render();
+    // Instant reaction to the user's own planner changes made in the app,
+    // debounced so a multi-course removal renders once, not once per course.
+    const unsubscribe = onApiCall(call => {
+      if (call.status >= 200 && call.status < 300 && MUTATING_PATHS.includes(call.path)) {
+        window.clearTimeout(debounceTimer);
+        debounceTimer = window.setTimeout(() => void refresh({ force: true }), HOOK_DEBOUNCE_MS);
+      }
+    });
+
+    // Fallback for when the hook cannot see the page's requests. Once the
+    // hook has proven itself, this only needs to be a safety net.
+    let currentPollInterval = POLL_FAST_MS;
+    const tick = () => {
+      if (destroyed) {
+        return;
+      }
+      if (document.visibilityState === "visible") {
+        void refresh();
+      }
+      const wanted = observedCallCount() > 0 ? POLL_SLOW_MS : POLL_FAST_MS;
+      if (wanted !== currentPollInterval) {
+        currentPollInterval = wanted;
+        window.clearInterval(pollTimer);
+        pollTimer = window.setInterval(tick, wanted);
+      }
+    };
+    let pollTimer = window.setInterval(tick, currentPollInterval);
+
+    // Only a genuine hidden→visible transition is a reason to catch up;
+    // keepAlive dispatches synthetic visibilitychange events every 20s.
+    const onVisible = () => {
+      const visible = document.visibilityState === "visible";
+      if (visible && !wasVisible) {
+        void refresh();
+      }
+      wasVisible = visible;
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    void refresh({ force: true });
 
     return () => {
       destroyed = true;
-      retryTimers.forEach(timer => window.clearInterval(timer));
-      retryTimers.clear();
+      unsubscribe();
+      window.clearTimeout(debounceTimer);
+      window.clearInterval(pollTimer);
+      document.removeEventListener("visibilitychange", onVisible);
+      panel.body.removeEventListener("mouseleave", flushPending);
+      timers.forEach(timer => window.clearInterval(timer));
+      timers.clear();
+      cards.clear();
       panel.destroy();
     };
   },

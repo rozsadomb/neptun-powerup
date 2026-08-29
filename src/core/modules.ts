@@ -24,9 +24,17 @@ export function runModules(modules: NpuModule[]): void {
         active.add(module.id);
         Promise.resolve(module.activate())
           .then(cleanup => {
-            if (typeof cleanup === "function") {
-              cleanups.set(module.id, cleanup);
+            if (typeof cleanup !== "function") {
+              return;
             }
+            // The route may have changed again while activate() settled; the
+            // deactivation branch had no cleanup to call yet, so run it here
+            // rather than leaving an orphaned instance behind.
+            if (!active.has(module.id)) {
+              cleanup();
+              return;
+            }
+            cleanups.set(module.id, cleanup);
             log(`module ${module.id} activated`);
           })
           .catch(error => {

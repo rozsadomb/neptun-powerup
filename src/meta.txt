@@ -5,6 +5,7 @@
 // @version        <version>
 // @match          https://neptun.bme.hu/*
 // @run-at         document-idle
+// @noframes
 // @grant          GM.getValue
 // @grant          GM.setValue
 // @grant          GM.info
