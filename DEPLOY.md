@@ -1,52 +1,68 @@
-# Üzemeltetés: Cloudflare Pages deploy
+# Üzemeltetés: Cloudflare deploy
 
 A weboldal és a script ugyanabból a repóból megy ki. Minden `main`-re pusholt
 változás automatikusan élesedik, és a Tampermonkey-t használó felhasználók a
 frissített scriptet is maguktól megkapják.
 
-## 1. A projekt bekötése a Cloudflare-be (egyszeri)
+**Felállás:** Cloudflare **Worker + static assets** (`wrangler.jsonc`). A `site/`
+mappát a Workers assets szolgálja ki, a `worker/` mappában lévő kód pedig
+kizárólag az `/api/*` útvonalakon fut (`run_worker_first`).
 
-1. Lépj be a [dash.cloudflare.com](https://dash.cloudflare.com) oldalon (ingyenes fiók elég).
-2. Bal oldalt: **Workers & Pages** → **Create** → **Pages** → **Connect to Git**.
-3. Engedélyezd a GitHub-hozzáférést, és válaszd ki a `rozsadomb/neptun-powerup` repót.
-4. A build beállítások (fontos, hogy pontosan ezek legyenek):
+> A régi Pages Functions modell (`functions/` mappa) itt **nem** működik: a
+> Cloudflare ilyenkor „csak statikus assetek” projektként hozza létre, amihez
+> nem enged környezeti változót adni — és az API-végpont sem jön létre. Ha a
+> dashboardon ezt látod:
+> *„Variables cannot be added to a Worker that only has static assets”*,
+> akkor a projektben nincs Worker kód. A `wrangler.jsonc` `main` mezője oldja meg.
+
+## 1. A projekt bekötése (egyszeri)
+
+1. Lépj be a [dash.cloudflare.com](https://dash.cloudflare.com) oldalon.
+2. **Workers & Pages** → **Create** → **Import a repository** → `rozsadomb/neptun-powerup`.
+3. Build beállítások:
 
    | Mező | Érték |
    |---|---|
-   | Framework preset | `None` |
    | Build command | `npm run build:site` |
-   | Build output directory | `site` |
+   | Deploy command | `npx wrangler deploy` |
    | Root directory | *(üresen hagyni)* |
 
-   A Node verziót a repóban lévő `.node-version` fájl adja meg (20).
-5. **Save and Deploy**. Egy-két perc múlva él a `https://<projekt>.pages.dev` címen.
+   A többit a `wrangler.jsonc` adja (projektnév, statikus mappa, API-útvonal),
+   a Node verziót pedig a `.node-version` fájl (22 — a wrangler ennél régebbivel nem fut).
+4. **Deploy**. Egy-két perc múlva él a `https://<projekt>.workers.dev` címen.
 
-## 2. A visszajelzés-űrlap bekapcsolása
+Ha a projekt már létezik és statikus assetként jött létre, nem kell újra
+létrehozni: elég egy push a `wrangler.jsonc`-vel, a következő build már
+Workerként deployol, és megjelenik a **Variables and Secrets** szekció.
 
-Az űrlap egy GitHub issue-t nyit a repóban. Ehhez egy token kell, amit **csak**
+## 2. A visszajelzés-űrlap bekapcsolása (ide kell a token)
+
+Az űrlap GitHub issue-t nyit a repóban. Ehhez egy token kell, amit **csak**
 erre a repóra és **csak** issue-írásra adunk ki.
 
-1. GitHub → [Fine-grained personal access token létrehozása](https://github.com/settings/personal-access-tokens/new)
+1. GitHub → [Fine-grained personal access token](https://github.com/settings/personal-access-tokens/new)
    - **Repository access:** Only select repositories → `neptun-powerup`
    - **Permissions → Repository permissions → Issues:** `Read and write`
    - (Minden más maradjon `No access`.)
-   - Lejárat: amit jónak látsz; lejáratkor cserélni kell.
-2. Cloudflare → a Pages projekt → **Settings** → **Variables and Secrets** → **Add**:
-   - `GITHUB_TOKEN` = a most kapott token (típus: **Secret**, hogy titkosítva tárolódjon)
-   - `GITHUB_REPO` = `rozsadomb/neptun-powerup` (típus: Text)
-3. **Retry deployment**, hogy a változók életbe lépjenek.
+2. Cloudflare → a `neptun-powerup` Worker → **Settings** → **Variables and secrets** → **Add**:
+
+   | Név | Típus | Érték |
+   |---|---|---|
+   | `GITHUB_TOKEN` | **Secret** | a most kapott token |
+   | `GITHUB_REPO` | Text | `rozsadomb/neptun-powerup` |
+
+3. Mentés után **Deployments** → a legutóbbi deploy → **Retry**, hogy a változók életbe lépjenek.
 
 Amíg ez nincs beállítva, az űrlap udvarias hibaüzenetet ad, és a felhasználót a
 GitHub issue-khoz irányítja — tehát semmi nem törik el.
 
-## 3. Saját domain (opcionális, de ajánlott)
+## 3. Saját domain
 
-1. Cloudflare → a Pages projekt → **Custom domains** → **Set up a custom domain**.
+1. Cloudflare → a Worker → **Domains & Routes** → **Add** → **Custom domain**.
 2. Add meg a domaint, és kövesd a DNS-lépéseket (ha a domain is Cloudflare-nél van, egy kattintás).
-3. **Fontos:** a domain bekötése után írd át a script fejlécében az URL-eket, különben a
-   frissítések a régi címről érkeznének:
+3. **Fontos:** a domain bekötése után írd át az URL-eket, különben a frissítések a régi címről érkeznének:
    - `src/meta.txt` → `@homepageURL`, `@supportURL`, `@downloadURL`, `@updateURL`
-   - `site/index.html` és `site/visszajelzes.html` → a GitHub-linkek mellett a szövegek
+   - `site/index.html`, `site/visszajelzes.html`, `site/404.html` → a szövegekben szereplő címek
    - `README.md` → a fejlécben lévő link
 
    Ezután emelj verziót és pushold — a meglévő telepítések így állnak át az új címre.
@@ -66,14 +82,17 @@ A push után a Cloudflare automatikusan deployol. A Tampermonkey néhány órán
 
 ## 5. Helyi próba
 
+Node 22 kell hozzá (`nvm use 22`), mert a wrangler ennél régebbivel nem indul.
+
 ```bash
 npm run build:site
-npx wrangler pages dev site --port 8788 --compatibility-date=2026-05-03
+npx wrangler dev --port 8788
 ```
 
-A Functions is fut (`/api/feedback`). Ha a GitHub-tokent is tesztelnéd:
+Ekkor a statikus oldal és az `/api/feedback` is fut. A GitHub-token nélkül az
+űrlap a „még nincs beállítva” ágra fut; tokennel együtt így próbálható:
 
 ```bash
-npx wrangler pages dev site --port 8788 --compatibility-date=2026-05-03 \
-  --binding GITHUB_TOKEN=<token> --binding GITHUB_REPO=rozsadomb/neptun-powerup
+npx wrangler dev --port 8788 \
+  --var GITHUB_TOKEN:<token> --var GITHUB_REPO:rozsadomb/neptun-powerup
 ```

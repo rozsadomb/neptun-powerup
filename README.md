@@ -1,6 +1,6 @@
 # Neptun PowerUp! NG
 
-**Weboldal és telepítés: https://neptun-powerup.pages.dev** · [Hibabejelentés](https://neptun-powerup.pages.dev/visszajelzes.html)
+**Weboldal és telepítés: https://neptun-powerup.pages.dev** · [Hibabejelentés](https://neptun-powerup.pages.dev/visszajelzes)
 
 A [Neptun PowerUp!](https://github.com/solymosi/npu) szellemi utódja az **új Neptun webes felületre** (Angular SPA), elsőként a BME Neptunjára (`neptun.bme.hu/hallgatoi`).
 
@@ -32,10 +32,10 @@ Kézi telepítéshez: buildeld a szkriptet (lásd lent), majd nyisd meg a `dist/
 
 ## Weboldal
 
-A `site/` mappában statikus HTML/CSS/JS, keretrendszer nélkül; a `functions/api/feedback.js`
-Cloudflare Pages Function a visszajelzés-űrlapból GitHub issue-t nyit. A Cloudflare Pages
-minden pushnál újrabuildel: `npm run build:site` a build parancs, `site` a kimeneti mappa
-(a friss `npu.user.js` így mindig felkerül az oldalra).
+A `site/` mappában statikus HTML/CSS/JS, keretrendszer nélkül; a `worker/` mappában egy vékony
+Cloudflare Worker, amely a visszajelzés-űrlapból GitHub issue-t nyit (`wrangler.jsonc`).
+A Cloudflare minden pushnál újrabuildel: `npm run build:site`, a statikus mappa a `site`
+(így a friss `npu.user.js` is mindig felkerül az oldalra).
 
 ## Fejlesztés
 
