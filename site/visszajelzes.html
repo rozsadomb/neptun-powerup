@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Visszajelzés — Neptun PowerUp! NG</title>
+  <meta name="description" content="Hibabejelentés és ötletek a Neptun PowerUp! NG-hez.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="container">
+    <a class="brand" href="/">⚡ Neptun <span>PowerUp!</span> NG</a>
+    <nav>
+      <a href="/#funkciok">Funkciók</a>
+      <a href="/#telepites">Telepítés</a>
+      <a href="/#gyik">GYIK</a>
+      <a href="/visszajelzes.html">Visszajelzés</a>
+      <a href="https://github.com/rozsadomb/neptun-powerup" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<section>
+  <div class="container">
+    <h2>Visszajelzés</h2>
+    <p style="color:var(--muted); max-width:640px">Találtál egy hibát? Van egy ötleted? Írd meg —
+      nem kell hozzá semmilyen fiók. A bejelentésed nyilvánosan megjelenik a projekt
+      <a href="https://github.com/rozsadomb/neptun-powerup/issues" target="_blank" rel="noopener">GitHub-oldalán</a>,
+      így azt is látod majd, mi történik vele.</p>
+
+    <form class="feedback" id="feedbackForm">
+      <div>
+        <label>Miről van szó?</label>
+        <div class="type-row">
+          <input type="radio" name="type" value="bug" id="typeBug" checked>
+          <label for="typeBug">🐞 Hibát találtam</label>
+          <input type="radio" name="type" value="idea" id="typeIdea">
+          <label for="typeIdea">💡 Ötletem van</label>
+        </div>
+      </div>
+
+      <div>
+        <label for="fbTitle">Rövid összefoglaló</label>
+        <input type="text" id="fbTitle" name="title" maxlength="120" required
+               placeholder="Pl.: A helyfigyelő nem jelez a XY kurzusnál">
+      </div>
+
+      <div>
+        <label for="fbBody">Részletek</label>
+        <textarea id="fbBody" name="body" maxlength="4000" required
+                  placeholder="Hiba esetén: mit csináltál, mit vártál, és mi történt helyette? Melyik egyetem, melyik böngésző?"></textarea>
+        <p class="hint">Kérlek, ne írj bele jelszót vagy más érzékeny adatot — a bejelentés nyilvános.</p>
+      </div>
+
+      <div>
+        <label for="fbContact">Email (nem kötelező)</label>
+        <input type="email" id="fbContact" name="contact" maxlength="120"
+               placeholder="Ha szeretnéd, hogy visszajelezzünk">
+      </div>
+
+      <div class="hp" aria-hidden="true">
+        <label for="fbWebsite">Hagyd üresen</label>
+        <input type="text" id="fbWebsite" name="website" tabindex="-1" autocomplete="off">
+      </div>
+
+      <div id="formStatus" hidden class="form-status"></div>
+
+      <div>
+        <button class="button" type="submit" id="fbSubmit">Elküldés</button>
+      </div>
+    </form>
+
+    <p style="color:var(--muted); font-size:14.5px; margin-top:18px">Van GitHub-fiókod? Akkor
+      <a href="https://github.com/rozsadomb/neptun-powerup/issues/new" target="_blank" rel="noopener">közvetlenül is nyithatsz issue-t</a>.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="container cols">
+    <div>
+      <p><b style="color:#fff">⚡ Neptun PowerUp! NG</b></p>
+      <p>Ingyenes, nyílt forráskódú projekt • MIT licensz</p>
+    </div>
+    <div>
+      <p><a href="https://github.com/rozsadomb/neptun-powerup" target="_blank" rel="noopener">Forráskód a GitHubon</a></p>
+      <p id="bmacSlot" hidden><a id="bmacLink" href="#" target="_blank" rel="noopener">☕ Hívj meg egy kávéra</a></p>
+    </div>
+  </div>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

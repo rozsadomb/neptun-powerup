@@ -1,0 +1,277 @@
+/* Neptun PowerUp! NG — projektoldal */
+:root {
+  --navy: #1b2a5e;
+  --blue: #2b6cb0;
+  --blue-dark: #235a94;
+  --green: #2f9e44;
+  --amber: #f08c00;
+  --bg: #f6f8fd;
+  --card: #ffffff;
+  --text: #212842;
+  --muted: #5a6482;
+  --border: #dde4f2;
+  --radius: 12px;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+a { color: var(--blue); }
+h1, h2, h3 { line-height: 1.25; }
+
+.container { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+
+/* --- fejléc --- */
+.topbar {
+  background: var(--navy);
+  color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 2px 10px rgba(27, 42, 94, .25);
+}
+.topbar .container {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 56px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.brand { font-weight: 700; font-size: 18px; color: #fff; text-decoration: none; white-space: nowrap; }
+.brand span { color: #8fd3ff; }
+.topbar nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.topbar nav a {
+  color: #dfe7ff;
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 15px;
+}
+.topbar nav a:hover { background: rgba(255, 255, 255, .12); color: #fff; }
+
+/* --- hero --- */
+.hero { text-align: center; padding: 64px 0 40px; }
+.hero h1 { font-size: clamp(30px, 5vw, 44px); margin: 0 0 10px; color: var(--navy); }
+.hero .tagline { font-size: clamp(17px, 2.5vw, 21px); color: var(--muted); margin: 0 auto 26px; max-width: 620px; }
+.hero .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+.button {
+  display: inline-block;
+  background: var(--blue);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 13px 26px;
+  border-radius: 10px;
+  border: 0;
+  font-size: 17px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.button:hover { background: var(--blue-dark); }
+.button--big { font-size: 19px; padding: 16px 34px; }
+.button--ghost { background: transparent; color: var(--blue); border: 2px solid var(--blue); }
+.button--ghost:hover { background: #eaf1fb; }
+.button--green { background: var(--green); }
+.button--green:hover { background: #268a3a; }
+
+.notice {
+  max-width: 640px;
+  margin: 26px auto 0;
+  background: #fff8e6;
+  border: 1px solid #f2dfa9;
+  color: #6b5410;
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  font-size: 15px;
+}
+
+/* --- szekciók --- */
+section { padding: 44px 0; }
+section h2 { font-size: 28px; color: var(--navy); margin: 0 0 22px; }
+.section-alt { background: #eef2fb; }
+
+/* funkciókártyák */
+.features { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.feature {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+.feature .icon { font-size: 26px; }
+.feature h3 { margin: 8px 0 6px; font-size: 18px; }
+.feature p { margin: 0; color: var(--muted); font-size: 15px; }
+
+/* --- telepítés --- */
+.browser-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+.browser-pills button {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  padding: 8px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 15px;
+}
+.browser-pills button.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+.steps { counter-reset: step; display: flex; flex-direction: column; gap: 14px; }
+.step {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px 18px 66px;
+  position: relative;
+}
+.step::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  left: 18px;
+  top: 18px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: #fff;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.step h3 { margin: 0 0 6px; font-size: 17px; }
+.step p { margin: 6px 0; color: var(--muted); font-size: 15px; }
+.step .button { margin-top: 8px; }
+.step ol { margin: 8px 0 0; padding-left: 20px; color: var(--muted); font-size: 15px; }
+.step ol li { margin: 4px 0; }
+.step code {
+  background: #eef2fb;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 7px;
+  font-size: 14px;
+  color: var(--navy);
+}
+.step[hidden] { display: none; }
+.badge-demo {
+  display: inline-block;
+  background: var(--navy);
+  color: #fff;
+  font-size: 12.5px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  margin-top: 6px;
+}
+.badge-demo b { font-weight: 600; }
+.badge-demo .ok { color: #7ee787; }
+
+/* kapcsoló-illusztráció a fejlesztői módhoz */
+.toggle-demo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #eef2fb;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 14px;
+  color: var(--navy);
+  margin-top: 6px;
+}
+.toggle-demo .knob {
+  width: 34px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--green);
+  position: relative;
+  flex: 0 0 auto;
+}
+.toggle-demo .knob::after {
+  content: "";
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+/* --- GYIK --- */
+.faq details {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 20px;
+  margin-bottom: 10px;
+}
+.faq summary { font-weight: 600; cursor: pointer; color: var(--navy); }
+.faq details p { color: var(--muted); font-size: 15px; }
+
+/* --- űrlap --- */
+form.feedback {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 640px;
+}
+form.feedback label { font-weight: 600; font-size: 15px; display: block; margin-bottom: 6px; }
+form.feedback input[type="text"],
+form.feedback input[type="email"],
+form.feedback textarea,
+form.feedback select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--text);
+  background: #fff;
+}
+form.feedback textarea { min-height: 140px; resize: vertical; }
+form.feedback .hint { color: var(--muted); font-size: 13.5px; margin-top: 4px; }
+.form-status { border-radius: 8px; padding: 12px 16px; font-size: 15px; }
+.form-status.ok { background: #e9f9ee; border: 1px solid #b7e4c3; color: #1d6b30; }
+.form-status.err { background: #fdecec; border: 1px solid #f2bcbc; color: #8f1d1d; }
+.type-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.type-row input { position: absolute; opacity: 0; }
+.type-row label {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 18px;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--muted);
+}
+.type-row input:checked + label { background: var(--navy); border-color: var(--navy); color: #fff; }
+.hp { position: absolute; left: -9999px; opacity: 0; height: 0; overflow: hidden; }
+
+/* --- lábléc --- */
+footer {
+  background: var(--navy);
+  color: #c9d2e8;
+  padding: 34px 0;
+  margin-top: 30px;
+  font-size: 14.5px;
+}
+footer a { color: #8fd3ff; }
+footer .cols { display: flex; gap: 40px; flex-wrap: wrap; justify-content: space-between; }
+footer p { margin: 6px 0; }
+
+@media (max-width: 640px) {
+  .hero { padding-top: 40px; }
+  .step { padding-left: 20px; padding-top: 58px; }
+  .step::before { top: 14px; left: 20px; }
+}
