@@ -33,6 +33,9 @@ export const statusBadge: NpuModule = {
         border-radius: 6px;
         box-shadow: 0 1px 4px rgba(0,0,0,.35);
         opacity: .88;
+        /* Purely informational, and it sits above the panels: it must never
+           swallow a click meant for a panel's resize handle. */
+        pointer-events: none;
       }
       #npu-badge b { font-weight: 600; }
       #npu-badge .npu-ok { color: #7ee787; }

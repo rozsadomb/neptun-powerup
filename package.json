@@ -1,6 +1,6 @@
 {
   "name": "npu-ng",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Neptun PowerUp! NG – felturbózza az új Neptun webes felületét",
   "private": true,
   "type": "module",
