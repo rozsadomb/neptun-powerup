@@ -57,7 +57,7 @@ export function cloneAppButton(template: HTMLElement | null, label: string, icon
 // Neptun renders a spelled-out copy of codes for screen readers next to the
 // visible one ("Kurzuskód: T 0" beside "T0"). It is invisible but lands in
 // textContent, so it has to be stripped before any code can be matched.
-function visibleText(node: Element | null | undefined): string {
+export function visibleText(node: Element | null | undefined): string {
   if (!node) {
     return "";
   }
