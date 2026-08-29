@@ -1,10 +1,12 @@
 # Neptun PowerUp! NG
 
+**Weboldal és telepítés: https://neptun-powerup.pages.dev** · [Hibabejelentés](https://neptun-powerup.pages.dev/visszajelzes.html)
+
 A [Neptun PowerUp!](https://github.com/solymosi/npu) szellemi utódja az **új Neptun webes felületre** (Angular SPA), elsőként a BME Neptunjára (`neptun.bme.hu/hallgatoi`).
 
 A régi NPU a régi ASP.NET WebForms felületre épült és azzal együtt nyugdíjba vonult. Ez a projekt nulláról írja újra a funkcionalitást, de a régi DOM-manipuláció helyett elsősorban a Neptun **REST API-jára** építve (a felderített API-t lásd: [RECON.md](RECON.md)).
 
-## Funkciók (v0.3)
+## Funkciók
 
 - **Kidobásvédelem** – a szkript a lejárat előtt automatikusan új access tokent kér (`Account/GetNewTokens`), frissíti a sessionStorage-ban tárolt lejáratokat, és szintetikus eseményekkel a Neptun saját (memóriában ketyegő) visszaszámlálóját is szinkronban tartja, így a munkamenet soha nem jár le.
   A Neptun **rotálja a refresh cookie-t**, ezért két egyszerre futó frissítés közül a vesztes 401-et kap, és a szerver kilépteti a felhasználót. A szkript emiatt egyszerre csak egy frissítést enged (fülön belül és fülök között is), és félreáll, amikor az alkalmazás maga frissít.
@@ -23,8 +25,17 @@ A régi NPU a régi ASP.NET WebForms felületre épült és azzal együtt nyugd�
 
 ## Telepítés
 
-1. Telepítsd a [Tampermonkey](https://www.tampermonkey.net/) kiegészítőt.
-2. Buildeld a szkriptet (lásd lent), majd nyisd meg a `dist/npu.user.js` fájlt a böngészőben és telepítsd.
+A legegyszerűbb út a weboldalon lévő útmutató: **https://neptun-powerup.pages.dev/#telepites**
+(Tampermonkey telepítése → egy kattintás a scriptre → kész; a frissítések automatikusan érkeznek.)
+
+Kézi telepítéshez: buildeld a szkriptet (lásd lent), majd nyisd meg a `dist/npu.user.js` fájlt a böngészőben.
+
+## Weboldal
+
+A `site/` mappában statikus HTML/CSS/JS, keretrendszer nélkül; a `functions/api/feedback.js`
+Cloudflare Pages Function a visszajelzés-űrlapból GitHub issue-t nyit. A Cloudflare Pages
+minden pushnál újrabuildel: `npm run build:site` a build parancs, `site` a kimeneti mappa
+(a friss `npu.user.js` így mindig felkerül az oldalra).
 
 ## Fejlesztés
 
