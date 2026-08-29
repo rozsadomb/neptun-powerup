@@ -1,3 +1,6 @@
 node_modules/
 dist/
 site/npu.user.js
+
+# Cloudflare wrangler helyi állapota (cache, build, trace)
+.wrangler/

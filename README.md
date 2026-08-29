@@ -1,6 +1,6 @@
 # Neptun PowerUp! NG
 
-**Weboldal és telepítés: https://neptun-powerup.pages.dev** · [Hibabejelentés](https://neptun-powerup.pages.dev/visszajelzes)
+**Weboldal és telepítés: https://neptun-powerup.com** · [Hibabejelentés](https://neptun-powerup.com/visszajelzes)
 
 A [Neptun PowerUp!](https://github.com/solymosi/npu) szellemi utódja az **új Neptun webes felületre** (Angular SPA), elsőként a BME Neptunjára (`neptun.bme.hu/hallgatoi`).
 
@@ -25,7 +25,7 @@ A régi NPU a régi ASP.NET WebForms felületre épült és azzal együtt nyugd�
 
 ## Telepítés
 
-A legegyszerűbb út a weboldalon lévő útmutató: **https://neptun-powerup.pages.dev/#telepites**
+A legegyszerűbb út a weboldalon lévő útmutató: **https://neptun-powerup.com/#telepites**
 (Tampermonkey telepítése → egy kattintás a scriptre → kész; a frissítések automatikusan érkeznek.)
 
 Kézi telepítéshez: buildeld a szkriptet (lásd lent), majd nyisd meg a `dist/npu.user.js` fájlt a böngészőben.
