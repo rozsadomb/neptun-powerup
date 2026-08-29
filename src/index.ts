@@ -11,8 +11,25 @@ import { statusBadge } from "./modules/statusBadge";
 import { subjectAutoSearch } from "./modules/subjectAutoSearch";
 import { subjectInlineControls } from "./modules/subjectInlineControls";
 
-(async () => {
+// A @include minták tágabbak a tesztelt BME-nél, hogy más egyetemek Neptunján
+// is elinduljon a szkript. Ezért futásidőben is meggyőződünk róla, hogy tényleg
+// a Neptun hallgatói felületén vagyunk: egy véletlen találaton inkább ne
+// csináljunk semmit.
+function looksLikeNeptun(): boolean {
   if (!location.pathname.startsWith("/hallgatoi")) {
+    return false;
+  }
+  if (location.host.toLowerCase().includes("neptun")) {
+    return true;
+  }
+  if (document.title.toLowerCase().includes("neptun")) {
+    return true;
+  }
+  return !!document.querySelector("neptun-header, neptun-main-menu, [class*='neptun-']");
+}
+
+(async () => {
+  if (!looksLikeNeptun()) {
     return;
   }
   // A same-origin iframe would otherwise get a second full instance, with its

@@ -7,7 +7,12 @@
 // @supportURL     https://neptun-powerup.com/visszajelzes
 // @downloadURL    https://neptun-powerup.com/npu.user.js
 // @updateURL      https://neptun-powerup.com/npu.user.js
+// A BME az egyetlen tesztelt felület. A Neptun ugyanaz a rendszer minden
+// egyetemen, ezért a szkript más Neptun-címeken is elindul — a belépési pont
+// futásidőben ellenőrzi, hogy tényleg a hallgatói felületen vagyunk-e.
 // @match          https://neptun.bme.hu/*
+// @include        https://*neptun*/hallgatoi/*
+// @include        https://*/hallgatoi/*neptun*
 // @run-at         document-idle
 // @noframes
 // @grant          GM.getValue

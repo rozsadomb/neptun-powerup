@@ -2,7 +2,9 @@
 
 **Weboldal és telepítés: https://neptun-powerup.com** · [Hibabejelentés](https://neptun-powerup.com/visszajelzes)
 
-A [Neptun PowerUp!](https://github.com/solymosi/npu) szellemi utódja az **új Neptun webes felületre** (Angular SPA), elsőként a BME Neptunjára (`neptun.bme.hu/hallgatoi`).
+A [Neptun PowerUp!](https://github.com/solymosi/npu) szellemi utódja az **új Neptun webes felületre** (Angular SPA).
+Tesztelve a BME Neptunján (`neptun.bme.hu/hallgatoi`); a szkript más egyetemek Neptunján is elindul
+(a rendszer mindenhol ugyanaz), de ott még nincs kipróbálva.
 
 A régi NPU a régi ASP.NET WebForms felületre épült és azzal együtt nyugdíjba vonult. Ez a projekt nulláról írja újra a funkcionalitást, de a régi DOM-manipuláció helyett elsősorban a Neptun **REST API-jára** építve (a felderített API-t lásd: [RECON.md](RECON.md)).
 

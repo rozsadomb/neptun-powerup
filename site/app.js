@@ -4,8 +4,7 @@
 (function () {
   "use strict";
 
-  // Buy Me a Coffee: amint van link, ide kell beírni, és a gomb megjelenik.
-  var BMAC_URL = "";
+  var BMAC_URL = "https://buymeacoffee.com/neptunpowerup";
 
   var TM_LINKS = {
     chrome: "https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo",
