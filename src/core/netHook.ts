@@ -18,6 +18,14 @@ export interface ApiCall {
   /** Path after the /hallgatoi/api/ prefix, e.g. "SubjectApplication/UnScheduleCourse". */
   path: string;
   status: number;
+  /** Full request URL, so listeners can read query parameters. */
+  url: string;
+  /**
+   * The response body the app received, parsed on first access and cached.
+   * Lets us reuse data the app already fetched instead of asking again.
+   * Returns null when the body is missing or not JSON.
+   */
+  json<T = unknown>(): T | null;
 }
 
 type Listener = (call: ApiCall) => void;
@@ -96,11 +104,33 @@ function install(): void {
           // loadend fires once per send for every terminal outcome, after the
           // app's own load handler — so its state is already updated when we
           // report. `once` keeps a reused XHR from accumulating listeners.
+          const xhr = this;
           this.addEventListener(
             "loadend",
             () => {
               const path = info.url.slice(info.url.indexOf(API_MARKER) + API_MARKER.length).split(/[?#]/)[0];
-              notify({ method: info.method.toUpperCase(), path, status: this.status });
+              let parsed: unknown;
+              let parsedDone = false;
+              notify({
+                method: info.method.toUpperCase(),
+                path,
+                status: xhr.status,
+                url: info.url,
+                json<T>(): T | null {
+                  if (!parsedDone) {
+                    parsedDone = true;
+                    try {
+                      // responseText throws for non-text response types.
+                      parsed = xhr.responseType === "" || xhr.responseType === "text"
+                        ? JSON.parse(xhr.responseText)
+                        : xhr.response;
+                    } catch {
+                      parsed = null;
+                    }
+                  }
+                  return (parsed as T) ?? null;
+                },
+              });
             },
             { once: true }
           );
