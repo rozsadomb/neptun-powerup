@@ -3,13 +3,17 @@ import { runModules } from "./core/modules";
 import { initRouter } from "./core/router";
 import * as storage from "./core/storage";
 import { autoLogin } from "./modules/autoLogin";
+import { backToLastPage } from "./modules/backToLastPage";
 import { courseWatch } from "./modules/courseWatch";
 import { examOverview } from "./modules/examOverview";
 import { keepAlive } from "./modules/keepAlive";
+import { pageTitle } from "./modules/pageTitle";
+import { popupDismiss } from "./modules/popupDismiss";
 import { quickSignup } from "./modules/quickSignup";
 import { statusBadge } from "./modules/statusBadge";
 import { subjectAutoSearch } from "./modules/subjectAutoSearch";
 import { subjectInlineControls } from "./modules/subjectInlineControls";
+import { termMemory } from "./modules/termMemory";
 
 // A @include minták tágabbak a tesztelt BME-nél, hogy más egyetemek Neptunján
 // is elinduljon a szkript. Ezért futásidőben is meggyőződünk róla, hogy tényleg
@@ -43,6 +47,10 @@ function looksLikeNeptun(): boolean {
   runModules([
     keepAlive,
     statusBadge,
+    pageTitle,
+    popupDismiss,
+    backToLastPage,
+    termMemory,
     courseWatch,
     subjectAutoSearch,
     subjectInlineControls,
