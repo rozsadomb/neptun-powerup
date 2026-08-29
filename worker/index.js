@@ -8,6 +8,20 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // Üzemeltetési önellenőrzés: megmondja, be van-e állítva a két változó,
+    // de az értéküket soha nem adja vissza (a repo neve amúgy is publikus).
+    if (url.pathname === "/api/health") {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          githubTokenConfigured: Boolean(env.GITHUB_TOKEN),
+          githubRepoConfigured: Boolean(env.GITHUB_REPO),
+          repo: env.GITHUB_REPO ?? null,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json; charset=utf-8" } }
+      );
+    }
+
     if (url.pathname === "/api/feedback") {
       if (request.method !== "POST") {
         return new Response(JSON.stringify({ error: "Csak POST kérés engedélyezett." }), {
