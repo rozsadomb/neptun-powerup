@@ -3,6 +3,8 @@ import { log } from "../core/env";
 import type { NpuModule } from "../core/modules";
 import { observedCallCount, onApiCall } from "../core/netHook";
 import { el, createPanel } from "../core/ui";
+import * as storage from "../core/storage";
+import { addWatch, getWatches, isWatched, removeWatch, watchKey } from "./courseWatch";
 
 // One-click registration of the courses planned in the built-in schedule
 // planner (Órarendtervező).
@@ -189,7 +191,8 @@ export const quickSignup: NpuModule = {
     const allButton = el(
       `<button class="npu-button" style="width:100%; visibility:hidden"></button>`
     ) as HTMLButtonElement;
-    panel.body.append(header, allButton, list, emptyNote);
+    const watchSection = el(`<div class="npu-watchlist" style="display:none"></div>`);
+    panel.body.append(header, allButton, list, emptyNote, watchSection);
 
     const cards = new Map<string, Card>();
     // Every timer we ever arm, so cleanup can clear one that was armed by a
@@ -340,15 +343,55 @@ export const quickSignup: NpuModule = {
       card.element.querySelector<HTMLElement>(".npu-item__title")!.textContent = subject.title;
       card.element.querySelector<HTMLElement>(".npu-credit")!.textContent = `${subject.credit} kredit`;
 
-      const description = subject.courses.map(describeCourse).join("\n");
+      const description = subject.courses
+        .map(course => `${describeCourse(course)}|${isWatched(subject.subjectId, course.id)}`)
+        .join("\n");
       if (card.coursesBox.dataset.description !== description) {
         card.coursesBox.dataset.description = description;
         card.coursesBox.innerHTML = "";
         subject.courses.forEach(course => {
           const row = document.createElement("div");
           row.className = "npu-item__meta";
+          row.style.display = "flex";
+          row.style.alignItems = "center";
+          row.style.gap = "6px";
+          const text = document.createElement("span");
           // textContent, not innerHTML: these strings come from the server.
-          row.textContent = describeCourse(course);
+          text.textContent = describeCourse(course);
+          row.appendChild(text);
+          // A full course is the one worth watching for a free place.
+          if (course.isFull) {
+            const watching = isWatched(subject.subjectId, course.id);
+            const button = el(
+              `<button class="npu-button npu-button--subtle" style="padding:1px 6px">` +
+                `${watching ? "🔔 figyelve" : "🔔 figyelem"}</button>`
+            ) as HTMLButtonElement;
+            button.title = watching
+              ? "Figyelés leállítása"
+              : "Szólok, amint felszabadul egy hely ezen a kurzuson";
+            button.addEventListener("click", () => {
+              if (isWatched(subject.subjectId, course.id)) {
+                removeWatch(subject.subjectId, course.id);
+              } else {
+                addWatch({
+                  subjectId: subject.subjectId,
+                  courseId: course.id,
+                  curriculumTemplateId: subject.curriculumTemplateId,
+                  curriculumTemplateLineId: subject.curriculumTemplateLineId,
+                  termId: subject.termId,
+                  termValue: term?.value ?? 0,
+                  subjectTitle: subject.title,
+                  courseCode: course.code,
+                  courseType: course.type,
+                  autoSignup: false,
+                });
+              }
+              card.coursesBox.dataset.description = ""; // force a redraw
+              updateCard(card, card.subject);
+              renderWatchList();
+            });
+            row.appendChild(button);
+          }
           card.coursesBox.appendChild(row);
         });
       }
@@ -447,6 +490,62 @@ export const quickSignup: NpuModule = {
     const setHeader = (text: string, isError = false) => {
       header.textContent = text;
       header.className = isError ? "npu-error" : "npu-note";
+    };
+
+    // Watched (full) courses: the background watcher polls these even on other
+    // pages, so the list is shown here as the place to manage them.
+    const renderWatchList = () => {
+      const watches = Object.values(getWatches());
+      watchSection.innerHTML = "";
+      if (watches.length === 0) {
+        watchSection.style.display = "none";
+        return;
+      }
+      watchSection.style.display = "block";
+      watchSection.appendChild(
+        el(
+          `<div class="npu-note" style="border-top:1px solid #e3e7f2;padding-top:8px;margin-top:10px">` +
+            `<b>Figyelt kurzusok (${watches.length})</b> — szólok, amint felszabadul egy hely.</div>`
+        )
+      );
+      watches.forEach(watch => {
+        const item = el(
+          `<div class="npu-item npu-item--yellow">` +
+            `<div class="npu-item__title"></div>` +
+            `<div class="npu-item__meta npu-watch-course"></div>` +
+            `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px">` +
+            `<label class="npu-item__meta" style="display:flex;align-items:center;gap:4px;cursor:pointer">` +
+            `<input type="checkbox" class="npu-auto">azonnal fel is veszi</label>` +
+            `<button class="npu-button npu-button--danger npu-stop" style="padding:1px 6px">Figyelés vége</button>` +
+            `</div></div>`
+        );
+        item.querySelector<HTMLElement>(".npu-item__title")!.textContent = watch.subjectTitle;
+        item.querySelector<HTMLElement>(".npu-watch-course")!.textContent = `${watch.courseCode} (${watch.courseType})`;
+        const auto = item.querySelector<HTMLInputElement>(".npu-auto")!;
+        auto.checked = watch.autoSignup;
+        auto.addEventListener("change", () => {
+          if (
+            !auto.checked ||
+            confirm(
+              `Ha felszabadul egy hely a(z) ${watch.courseCode} kurzuson, azonnal felveszem a(z) ` +
+                `"${watch.subjectTitle}" tárgyat, külön rákérdezés nélkül. Biztos?`
+            )
+          ) {
+            storage.set("watches", watchKey(watch.subjectId, watch.courseId), {
+              ...watch,
+              autoSignup: auto.checked,
+            });
+          } else {
+            auto.checked = false;
+          }
+        });
+        item.querySelector<HTMLElement>(".npu-stop")!.addEventListener("click", () => {
+          removeWatch(watch.subjectId, watch.courseId);
+          renderWatchList();
+          void refresh({ force: true });
+        });
+        watchSection.appendChild(item);
+      });
     };
 
     const refresh = async (options: { force?: boolean } = {}): Promise<void> => {
@@ -570,6 +669,16 @@ export const quickSignup: NpuModule = {
     };
     document.addEventListener("visibilitychange", onVisible);
 
+    // The background watcher can change the list from anywhere.
+    const onWatchesChanged = () => {
+      renderWatchList();
+      void refresh({ force: true });
+    };
+    document.addEventListener("npu:watches-changed", onWatchesChanged);
+    document.addEventListener("npu:place-free", onWatchesChanged);
+    document.addEventListener("npu:auto-signed-up", onWatchesChanged);
+
+    renderWatchList();
     void refresh({ force: true });
 
     return () => {
@@ -578,6 +687,9 @@ export const quickSignup: NpuModule = {
       window.clearTimeout(debounceTimer);
       window.clearInterval(pollTimer);
       document.removeEventListener("visibilitychange", onVisible);
+      document.removeEventListener("npu:watches-changed", onWatchesChanged);
+      document.removeEventListener("npu:place-free", onWatchesChanged);
+      document.removeEventListener("npu:auto-signed-up", onWatchesChanged);
       panel.body.removeEventListener("mouseleave", flushPending);
       timers.forEach(timer => window.clearInterval(timer));
       timers.clear();
