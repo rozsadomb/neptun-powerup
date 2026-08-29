@@ -4,7 +4,7 @@
 // @description    Felturbózza az új Neptun webes felületét
 // @version        <version>
 // @homepageURL    https://neptun-powerup.pages.dev
-// @supportURL     https://neptun-powerup.pages.dev/visszajelzes.html
+// @supportURL     https://neptun-powerup.pages.dev/visszajelzes
 // @downloadURL    https://neptun-powerup.pages.dev/npu.user.js
 // @updateURL      https://neptun-powerup.pages.dev/npu.user.js
 // @match          https://neptun.bme.hu/*

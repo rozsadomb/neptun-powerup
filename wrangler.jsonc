@@ -1,0 +1,21 @@
+{
+  // Cloudflare Workers + static assets.
+  //
+  // A régi Pages Functions modell (functions/ mappa) helyett ez a jelenlegi,
+  // támogatott felállás: a site/ mappát a Workers assets szolgálja ki, és a
+  // Worker kód KIZÁRÓLAG az /api/* útvonalakon fut (run_worker_first).
+  // Enélkül a projekt "csak statikus assetek" lenne, amihez a Cloudflare nem
+  // enged környezeti változót adni — így a visszajelzés-űrlap sem működne.
+  "name": "neptun-powerup",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-08-29",
+  "assets": {
+    "directory": "./site",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"],
+    "not_found_handling": "404-page"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
