@@ -167,17 +167,20 @@ export const autoLogin: NpuModule = {
         }
         stopCountdown();
         renderPanel("Automatikus belépés megszakítva.");
-        document.removeEventListener("mousedown", abort, true);
+        document.removeEventListener("pointerdown", abort, true);
         document.removeEventListener("keydown", abort, true);
       };
-      document.addEventListener("mousedown", abort, true);
+      // pointerdown, not mousedown: dragging an NPU panel calls
+      // preventDefault(), which suppresses the mousedown that would otherwise
+      // pause the countdown — the user would be logged in mid-drag.
+      document.addEventListener("pointerdown", abort, true);
       document.addEventListener("keydown", abort, true);
 
       countdownTimer = window.setInterval(() => {
         remaining--;
         if (remaining <= 0) {
           stopCountdown();
-          document.removeEventListener("mousedown", abort, true);
+          document.removeEventListener("pointerdown", abort, true);
           document.removeEventListener("keydown", abort, true);
           renderPanel("Belépés...");
           fillAndMaybeSubmit(lastUsed, true);
@@ -188,7 +191,7 @@ export const autoLogin: NpuModule = {
 
       const cleanupExtra = () => {
         document.removeEventListener("click", captureListener, true);
-        document.removeEventListener("mousedown", abort, true);
+        document.removeEventListener("pointerdown", abort, true);
         document.removeEventListener("keydown", abort, true);
         panel.destroy();
       };
