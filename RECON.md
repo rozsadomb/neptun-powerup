@@ -83,6 +83,24 @@ enélkül 400-at ad (`modelStateErrors`).
 Az órarendtervezőbe rakás/kivétel: `ScheduleSubjectAndCourses` / `UnScheduleCourse`
 (a tárgy alatti „Tervezőhöz adás” kapcsoló) — ez **nem** tárgyfelvétel, szabadon visszavonható.
 
+## Az app hálózati rétege és a változásfigyelés költsége (2026-08-29, mérve)
+
+Az Angular app **XMLHttpRequest**-tel hív minden API-t (klasszikus `HttpXhrBackend`): a
+`window.fetch`-re tett szonda nulla app-hívást fogott, az `XMLHttpRequest.prototype.open`-re tett
+szonda viszont azonnal elkapta a `POST .../ScheduleSubjectAndCourses`-t. Mivel az NPU saját
+kliense `fetch`-et használ, egy XHR-only hook pontosan az app műveleteit látja, a sajátjainkat nem
+(nincs visszacsatolási hurok).
+
+A tervező állapotának lekérdezése két végponton, mért költséggel:
+
+| Végpont | Méret | Idő | Mire jó |
+|---|---|---|---|
+| `GetScheduledCourses` | ~17 KB | ~200 ms | teljes kurzus-részletek (létszám, BETELT, órarend) |
+| `ScheduledSubjectsWithScheduledCourses` | ~0,9 KB | ~56 ms | csak a tárgyak + `scheduledCourseIds` |
+
+Ezért a változásfigyelésre a **könnyű** végpont való (a `scheduledCourseIds` halmazának
+összehasonlítása), és csak tényleges változáskor érdemes a nehezet lekérni a részletekhez.
+
 ## Vizsgák: felvett vizsgák listája
 
 `ExamRegisteredExams/GetRegisteredExamsList?request.termId=<GUID>&sortAndPage.firstRow=0&sortAndPage.lastRow=9999`

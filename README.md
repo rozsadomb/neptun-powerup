@@ -4,11 +4,13 @@ A [Neptun PowerUp!](https://github.com/solymosi/npu) szellemi utódja az **új N
 
 A régi NPU a régi ASP.NET WebForms felületre épült és azzal együtt nyugdíjba vonult. Ez a projekt nulláról írja újra a funkcionalitást, de a régi DOM-manipuláció helyett elsősorban a Neptun **REST API-jára** építve (a felderített API-t lásd: [RECON.md](RECON.md)).
 
-## Funkciók (v0.2)
+## Funkciók (v0.3)
 
 - **Kidobásvédelem** – a szkript a lejárat előtt automatikusan új access tokent kér (`Account/GetNewTokens`), frissíti a sessionStorage-ban tárolt lejáratokat, és szintetikus eseményekkel a Neptun saját (memóriában ketyegő) visszaszámlálóját is szinkronban tartja, így a munkamenet soha nem jár le.
+  A Neptun **rotálja a refresh cookie-t**, ezért két egyszerre futó frissítés közül a vesztes 401-et kap, és a szerver kilépteti a felhasználót. A szkript emiatt egyszerre csak egy frissítést enged (fülön belül és fülök között is), és félreáll, amikor az alkalmazás maga frissít.
 - **Automatikus tárgylistázás** – a Tárgyfelvétel oldalon nem kell a „Tárgy keresése” gombra kattintani, a lista magától betölt.
 - **Gyorsfelvétel** – a Tárgyfelvétel oldalon egy panel felsorolja az Órarendtervezőbe betervezett, még fel nem vett tárgyakat, kurzusonként a létszámmal és a „BETELT” jelzéssel. Egy kattintás (megerősítéssel) felveszi a tárgyat a betervezett kurzusaival együtt; telt kurzusnál bekapcsolható a 10 másodperces automatikus újrapróbálkozás. Ez a régi NPU „1 kattintásos tárgyfelvétel” funkciójának megfelelője, az új felület saját tervezőjére építve.
+  A panel **élőben követi a tervezőt**: amint egy tárgy bekerül vagy kikerül, azonnal frissül. A változást a Neptun saját hálózati hívásaiból veszi észre, és egy olcsó lekérdezéssel is ellenőrzi, hogy akkor is helyes maradjon, ha a lehallgatás nem működik (pl. más böngészőben). A frissítés megőrzi a futó újrapróbálkozásokat és a folyamatban lévő felvételt, és nem mozdítja el a kártyákat, amíg az egered a panel felett van.
 - **Vizsga-áttekintés** – a Vizsgák oldalain panel a felvett vizsgákkal, félévválasztó gombsorral (a választott félévet megjegyzi). Színezés a régi NPU szellemében: zöld = teljesítve, piros = sikertelen, sárga = nem jelent meg / várólistán, kék = felvett vizsga.
 - **Auto-login** – a bejelentkezési oldalon tárolt Neptun-kód/jelszó párosok, 3 másodperces visszaszámlálással automatikus belépés (bármely kattintás/billentyű megszakítja). Kézi belépés után felajánlja az adatok mentését. Captcha vagy kétfaktoros bejelentkezés esetén csak kitölt, nem küld be.
 - **Állapotjelző** – kis jelvény a jobb alsó sarokban: NPU verzió, munkamenet hátralévő ideje, utolsó frissítés.
