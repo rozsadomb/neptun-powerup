@@ -6,6 +6,12 @@ A [Neptun PowerUp!](https://github.com/solymosi/npu) szellemi utódja az **új N
 Tesztelve a BME Neptunján (`neptun.bme.hu/hallgatoi`); a szkript más egyetemek Neptunján is elindul
 (a rendszer mindenhol ugyanaz), de ott még nincs kipróbálva.
 
+A triggerminták az eredeti NPU listáján alapulnak, és a szkript **nem feltételezi, hogy a Neptun a
+címtartomány gyökerében ül**: több intézmény intézményi előtag alatt szolgálja ki (az eredeti NPU-nak
+emiatt kellett külön `neptun.ejf.hu/ejfhw/*` minta). Az app gyökerét a dokumentum saját
+`<base href>`-éből olvassa ki, és minden útvonal-illesztés és API-hívás ehhez képest relatív —
+enélkül a szkript elindulna az ilyen felületeken, de némán semmit sem csinálna.
+
 A régi NPU a régi ASP.NET WebForms felületre épült és azzal együtt nyugdíjba vonult. Ez a projekt nulláról írja újra a funkcionalitást, de a régi DOM-manipuláció helyett elsősorban a Neptun **REST API-jára** építve (a felderített API-t lásd: [RECON.md](RECON.md)).
 
 ## Funkciók
