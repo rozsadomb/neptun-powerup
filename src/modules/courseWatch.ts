@@ -2,6 +2,7 @@ import { api, ApiError, apiPost, isLoggedIn } from "../core/api";
 import { log } from "../core/env";
 import type { NpuModule } from "../core/modules";
 import * as storage from "../core/storage";
+import { ensureUser, userKey } from "../core/user";
 
 // Watches full courses and tells the user the moment a place frees up — the
 // modern counterpart of the old NPU's "waiting for a free place", which could
@@ -56,8 +57,50 @@ export function watchKey(subjectId: string, courseId: string): string {
   return `${subjectId}:${courseId}`;
 }
 
+// Watches are stored per student. Logging out and back in is only a route
+// change, so with a single global list the watcher would keep running for the
+// previous student in the next one's session — and an auto-signup watch would
+// register a course in the new student's name that they never chose. Until the
+// Neptun code is known, there are no watches: refusing to act is the only safe
+// answer to "whose are these?".
+const WATCH_ROOT = "watchesByUser";
+
 export function getWatches(): Record<string, WatchedCourse> {
-  return storage.get<Record<string, WatchedCourse>>("watches") ?? {};
+  const user = userKey();
+  if (!user) {
+    return {};
+  }
+  return storage.get<Record<string, WatchedCourse>>(WATCH_ROOT, user) ?? {};
+}
+
+function writeWatch(key: string, value: WatchedCourse | null): void {
+  const user = userKey();
+  if (!user) {
+    return;
+  }
+  storage.set(WATCH_ROOT, user, key, value);
+}
+
+/**
+ * Moves watches saved before they were per-student under the current student.
+ * Auto-signup is deliberately cleared: we cannot prove these were saved by the
+ * person now logged in, and registering a course for the wrong student is the
+ * one outcome worth losing a preference over. The alerts keep working.
+ */
+function adoptLegacyWatches(user: string): void {
+  const legacy = storage.get<Record<string, WatchedCourse>>("watches");
+  if (!legacy || Object.keys(legacy).length === 0) {
+    return;
+  }
+  const mine = storage.get<Record<string, WatchedCourse>>(WATCH_ROOT, user) ?? {};
+  const adopted: Record<string, WatchedCourse> = {};
+  Object.entries(legacy).forEach(([key, watch]) => {
+    adopted[key] = { ...watch, autoSignup: false };
+  });
+  storage.set(WATCH_ROOT, user, { ...adopted, ...mine });
+  storage.set("watches", null);
+  log(`adopted ${Object.keys(legacy).length} pre-existing watch(es) for ${user}`);
+  document.dispatchEvent(new CustomEvent("npu:watches-changed"));
 }
 
 export function isWatched(subjectId: string, courseId: string): boolean {
@@ -66,14 +109,14 @@ export function isWatched(subjectId: string, courseId: string): boolean {
 
 export function addWatch(watch: Omit<WatchedCourse, "key" | "addedAt">): void {
   const key = watchKey(watch.subjectId, watch.courseId);
-  storage.set("watches", key, { ...watch, key, addedAt: new Date().toISOString() });
+  writeWatch(key, { ...watch, key, addedAt: new Date().toISOString() });
   void requestNotificationPermission();
   document.dispatchEvent(new CustomEvent("npu:watches-changed"));
   log(`watching course ${watch.courseCode} of ${watch.subjectTitle}`);
 }
 
 export function removeWatch(subjectId: string, courseId: string): void {
-  storage.set("watches", watchKey(subjectId, courseId), null);
+  writeWatch(watchKey(subjectId, courseId), null);
   document.dispatchEvent(new CustomEvent("npu:watches-changed"));
 }
 
@@ -168,7 +211,7 @@ async function checkWatch(watch: WatchedCourse): Promise<void> {
   if (!hasPlace) {
     // Course filled up again: allow a fresh alert next time it opens.
     if (watch.notifiedAt) {
-      storage.set("watches", watch.key, { ...watch, notifiedAt: undefined });
+      writeWatch(watch.key, { ...watch, notifiedAt: undefined });
     }
     return;
   }
@@ -176,7 +219,7 @@ async function checkWatch(watch: WatchedCourse): Promise<void> {
     return; // already announced this opening
   }
 
-  storage.set("watches", watch.key, { ...watch, notifiedAt: new Date().toISOString() });
+  writeWatch(watch.key, { ...watch, notifiedAt: new Date().toISOString() });
   log(`place opened on ${watch.courseCode} (${takenSeats(state)}/${state.maxLimit})`);
   notify(watch, state);
   playChime();
@@ -207,11 +250,15 @@ async function checkWatch(watch: WatchedCourse): Promise<void> {
     log(`auto-signup failed for ${watch.courseCode}: ${message}`);
     document.dispatchEvent(new CustomEvent("npu:auto-signup-failed", { detail: { watch, message } }));
     // Let the next poll try again: the place may still be there.
-    storage.set("watches", watch.key, { ...watch, notifiedAt: undefined });
+    writeWatch(watch.key, { ...watch, notifiedAt: undefined });
   }
 }
 
 async function tick(): Promise<void> {
+  // Never act on someone else's watches: resolve who is logged in first.
+  if (!(await ensureUser())) {
+    return;
+  }
   const watches = Object.values(getWatches());
   if (watches.length === 0) {
     return;
@@ -236,7 +283,14 @@ export const courseWatch: NpuModule = {
         void tick();
       }
     }, POLL_INTERVAL_MS);
-    void tick();
+    void ensureUser().then(user => {
+      if (user && !stopped) {
+        adoptLegacyWatches(user);
+      }
+      if (!stopped) {
+        void tick();
+      }
+    });
     return () => {
       stopped = true;
       window.clearInterval(timer);

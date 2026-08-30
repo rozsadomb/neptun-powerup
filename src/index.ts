@@ -14,6 +14,7 @@ import { quickSignup } from "./modules/quickSignup";
 import { settingsPanel } from "./modules/settingsPanel";
 import { statusBadge } from "./modules/statusBadge";
 import { subjectAutoSearch } from "./modules/subjectAutoSearch";
+import { subjectHistory } from "./modules/subjectHistory";
 import { subjectInlineControls } from "./modules/subjectInlineControls";
 import { termMemory } from "./modules/termMemory";
 
@@ -58,6 +59,7 @@ function looksLikeNeptun(): boolean {
     termMemory,
     courseWatch,
     subjectAutoSearch,
+    subjectHistory,
     subjectInlineControls,
     examOverview,
     quickSignup,
