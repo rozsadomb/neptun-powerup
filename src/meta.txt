@@ -10,9 +10,19 @@
 // A BME az egyetlen tesztelt felület. A Neptun ugyanaz a rendszer minden
 // egyetemen, ezért a szkript más Neptun-címeken is elindul — a belépési pont
 // futásidőben ellenőrzi, hogy tényleg a hallgatói felületen vagyunk-e.
-// @match          https://neptun.bme.hu/*
-// @include        https://*neptun*/hallgatoi/*
-// @include        https://*/hallgatoi/*neptun*
+//
+// A mintakészlet az eredeti NPU (solymosi/npu, src/meta.txt) listáján alapul,
+// az új felülethez igazítva: az Angular app mindig egy "hallgatoi" szegmens
+// alatt ül, de nem feltétlenül a gyökérben (lásd az ejf.hu-t). Az alsó négy
+// intézmény címében nincs benne a "neptun" szó, ezért kellenek külön.
+// @match          https://neptun.bme.hu/hallgatoi/*
+// @include        https://*neptun*/*hallgatoi*
+// @include        https://*hallgato*.*neptun*/*
+// @include        https://*/*hallgatoi/*
+// @include        https://host.sdakft.hu/*
+// @include        https://netw*.nnet.sze.hu/*
+// @include        https://nappw.dfad.duf.hu/*
+// @include        https://neptun.ejf.hu/*
 // @run-at         document-idle
 // @noframes
 // @grant          GM.getValue

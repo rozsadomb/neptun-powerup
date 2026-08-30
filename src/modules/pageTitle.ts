@@ -1,3 +1,4 @@
+import { appPath } from "../core/base";
 import { visibleText } from "../core/inject";
 import type { NpuModule } from "../core/modules";
 
@@ -33,7 +34,7 @@ function currentPageName(): string | null {
       return parts[parts.length - 1];
     }
   }
-  const route = ROUTE_NAMES.find(([prefix]) => location.pathname.startsWith(prefix));
+  const route = ROUTE_NAMES.find(([prefix]) => appPath().startsWith(prefix));
   return route ? route[1] : null;
 }
 

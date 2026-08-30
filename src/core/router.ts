@@ -1,5 +1,10 @@
+import { appPath } from "./base";
+
 // Watches SPA route changes: hooks history.pushState/replaceState and
 // listens to popstate, with a low-frequency interval as a safety net.
+//
+// Paths are reported with the institution prefix stripped, so every module can
+// match plain "/hallgatoi/..." routes regardless of where Neptun is mounted.
 
 type RouteListener = (path: string) => void;
 
@@ -7,7 +12,7 @@ const listeners: RouteListener[] = [];
 let lastPath = "";
 
 function emitIfChanged(): void {
-  const path = location.pathname;
+  const path = appPath(location.pathname);
   if (path === lastPath) {
     return;
   }
@@ -44,5 +49,5 @@ export function onRouteChange(listener: RouteListener): void {
 }
 
 export function currentPath(): string {
-  return location.pathname;
+  return appPath(location.pathname);
 }

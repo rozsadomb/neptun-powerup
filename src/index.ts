@@ -1,3 +1,4 @@
+import { isAppPath } from "./core/base";
 import { log, VERSION } from "./core/env";
 import { runModules } from "./core/modules";
 import { initRouter } from "./core/router";
@@ -21,7 +22,9 @@ import { termMemory } from "./modules/termMemory";
 // a Neptun hallgatói felületén vagyunk: egy véletlen találaton inkább ne
 // csináljunk semmit.
 function looksLikeNeptun(): boolean {
-  if (!location.pathname.startsWith("/hallgatoi")) {
+  // Not startsWith: some institutions serve the app under an institution
+  // prefix (see core/base.ts), where the segment is not at the front.
+  if (!isAppPath()) {
     return false;
   }
   if (location.host.toLowerCase().includes("neptun")) {

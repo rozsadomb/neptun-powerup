@@ -1,3 +1,4 @@
+import { API_BASE } from "./base";
 import { log } from "./env";
 
 // Observes the Neptun app's own API calls so modules can react to state the
@@ -48,7 +49,9 @@ function pageWindow(): Window & typeof globalThis {
   return window as Window & typeof globalThis;
 }
 
-const API_MARKER = "/hallgatoi/api/";
+// Includes any institution prefix, so the hook also recognises the app's calls
+// where Neptun is not mounted at the site root.
+const API_MARKER = API_BASE;
 
 function notify(call: ApiCall): void {
   observedCalls++;

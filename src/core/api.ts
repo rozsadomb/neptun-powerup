@@ -1,10 +1,11 @@
+import { API_BASE } from "./base";
 import { log } from "./env";
 
 // Thin client for the new Neptun REST API. The Angular app keeps its access
 // token in sessionStorage, so we can share its session: read the token for
 // our own calls and write refreshed tokens back so the app stays in sync.
 
-export const API_BASE = "/hallgatoi/api/";
+export { API_BASE };
 
 const TOKEN_KEY = "access_token";
 const TOKEN_EXP_KEY = "access_token_expiration_date";

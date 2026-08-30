@@ -1,3 +1,4 @@
+import { appPath, appUrl } from "../core/base";
 import { waitFor } from "../core/dom";
 import { log } from "../core/env";
 import type { NpuModule } from "../core/modules";
@@ -21,7 +22,7 @@ function isEnabled(): boolean {
 
 function injectLoginCheckbox(): void {
   void waitFor("button[type=submit]", { timeoutMs: 10_000 }).then(submit => {
-    if (!submit || !location.pathname.startsWith("/hallgatoi/login")) {
+    if (!submit || !appPath().startsWith("/hallgatoi/login")) {
       return;
     }
     if (document.getElementById("npu-backtolast")) {
@@ -71,7 +72,8 @@ export const backToLastPage: NpuModule = {
           log(`returning to last visited page: ${last}`);
           // Full navigation on purpose: the Angular router ignores an
           // external history.pushState, a reload boots the app on the target.
-          location.href = last;
+          // Stored routes are prefix-free, so put the institution prefix back.
+          location.href = appUrl(last);
           return;
         }
       }
