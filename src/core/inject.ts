@@ -72,7 +72,13 @@ export function visibleText(node: Element | null | undefined): string {
 /** Reads the subject code (e.g. "BMETE47A004") out of a subject row. */
 export function subjectCodeOf(host: HTMLElement): string | null {
   const info = visibleText(host.querySelector(".subject-container__informations"));
-  const match = info.match(/\b[A-Z]{2,}[A-Z0-9]*\d[A-Z0-9-]*\b/);
+  // Codes are not uniformly upper-case: BME has e.g. "BMETEMIBsQMAL1-00", and
+  // an upper-case-only pattern silently skipped that row entirely — no
+  // quick-signup and no watch button on it. The institution prefix is still
+  // required to be upper-case, which is what keeps a mixed-case subject title
+  // from being mistaken for a code (verified against a full subject list:
+  // every code matched, no title did).
+  const match = info.match(/\b[A-Z]{3,}[A-Za-z0-9-]*\d[A-Za-z0-9-]*\b/);
   return match ? match[0] : null;
 }
 
@@ -86,9 +92,11 @@ const observers = new Map<string, MutationObserver>();
 
 /**
  * Keeps a control present in every matching row, re-injecting after the app
- * re-renders. Returns a function that stops observing and removes the nodes.
+ * re-renders. Returns a function that stops observing and removes the nodes;
+ * its `refresh` re-runs the placement without waiting for a DOM change, for
+ * when what a control displays depends on data that arrives later.
  */
-export function inject(spec: InjectionSpec): () => void {
+export function inject(spec: InjectionSpec): (() => void) & { refresh: () => void } {
   // An attribute, not dataset: ids contain hyphens, and dataset rejects those
   // property names with a SyntaxError.
   const marker = `data-npu-done-${spec.id}`;
@@ -125,10 +133,18 @@ export function inject(spec: InjectionSpec): () => void {
   observers.set(spec.id, observer);
   run();
 
-  return () => {
+  const cleanup = () => {
     observer.disconnect();
     observers.delete(spec.id);
     document.querySelectorAll(`[data-npu-control="${spec.id}"]`).forEach(node => node.remove());
     document.querySelectorAll<HTMLElement>(spec.hostSelector).forEach(host => host.removeAttribute(marker));
   };
+  // Clearing the markers makes rows eligible again, so a refresh re-decorates
+  // rows that were skipped while the data they depend on was still loading.
+  cleanup.refresh = () => {
+    document.querySelectorAll<HTMLElement>(spec.hostSelector).forEach(host => host.removeAttribute(marker));
+    document.querySelectorAll(`[data-npu-control="${spec.id}"]`).forEach(node => node.remove());
+    schedule();
+  };
+  return cleanup;
 }

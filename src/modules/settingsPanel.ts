@@ -44,6 +44,11 @@ const ENTRIES: SettingEntry[] = [
     description: "A tárgylista magától betölt, nem kell a „Tárgy keresése” gombra kattintani.",
   },
   {
+    moduleId: "subjectHistory",
+    label: "Tárgyelőzmény színezés",
+    description: "A Tárgyfelvétel listáján megjelöli, amit korábbi félévben már felvettél, de nincs meg.",
+  },
+  {
     moduleId: "examOverview",
     label: "Vizsga-áttekintés panel",
     description: "Színezett vizsgalista félévválasztóval a Vizsgák oldalain.",
