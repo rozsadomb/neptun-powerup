@@ -23,6 +23,7 @@
     <nav>
       <a href="#funkciok">Funkciók</a>
       <a href="#telepites">Telepítés</a>
+      <a href="#frissites">Frissítés</a>
       <a href="#gyik">GYIK</a>
       <a href="#projektrol">A projektről</a>
       <a href="/visszajelzes">Visszajelzés</a>
@@ -155,7 +156,60 @@
   </div>
 </section>
 
-<section id="gyik">
+<section id="frissites">
+  <div class="container">
+    <h2>Frissítés</h2>
+    <p style="color:var(--muted); margin-top:-10px">A frissítések maguktól érkeznek — a Tampermonkey
+      nagyjából naponta egyszer megnézi, van-e újabb verzió. Ha nem akarod kivárni, itt van, hogyan
+      kérheted el azonnal.</p>
+
+    <p class="notice">A legfrissebb kiadás: <b id="latestVersion">…</b>
+      <span id="latestVersionHint" style="color:var(--muted)"> — a nálad futó verziót a Neptun jobb alsó
+      sarkában lévő NPU-jelvényen látod.</span></p>
+
+    <div class="steps">
+      <div class="step">
+        <h3>A leggyorsabb út</h3>
+        <p>Kattints erre a gombra. A Tampermonkey felismeri, hogy a szkript már telepítve van, és
+          <b>frissítést</b> ajánl fel a szokásos telepítés helyett — csak hagyd jóvá.</p>
+        <a class="button button--green button--big" href="/npu.user.js">⚡ Frissítés most</a>
+        <p class="hint" style="color:var(--muted);font-size:13.5px">A beállításaid, a mentett belépési
+          adataid és a figyelt kurzusaid megmaradnak: ez frissítés, nem újratelepítés.</p>
+      </div>
+
+      <div class="step">
+        <h3>Vagy a Tampermonkey irányítópultján</h3>
+        <ol>
+          <li>Kattints a böngésző eszköztárában a <b>Tampermonkey</b> ikonjára, majd az
+            <b>Irányítópult</b> (<i>Dashboard</i>) menüpontra.</li>
+          <li>Keresd meg a listában a <b>Neptun PowerUp! NG</b> sorát.</li>
+          <li>A sor jobb szélén, az <b>Utoljára frissítve</b> (<i>Last updated</i>) oszlopban
+            <b>kattints rá az ott látható időpontra</b>. Ez azonnali ellenőrzést indít, és ha van
+            újabb verzió, letölti.</li>
+        </ol>
+      </div>
+
+      <div class="step">
+        <h3>Ha így sem frissül</h3>
+        <p>Három dolgot érdemes megnézni, ebben a sorrendben:</p>
+        <ol>
+          <li><b>Töltsd újra a Neptunt.</b> A már megnyitott lapon a régi verzió fut tovább, amíg
+            nem frissítesz rá (<code>F5</code>).</li>
+          <li><b>Nézd meg a frissítési beállítást.</b> A Tampermonkey <b>Beállítások</b> fülén, a
+            szkriptfrissítésnél az ellenőrzés gyakorisága átállítható — ha <i>soha</i> van beállítva,
+            a szkript magától tényleg nem fog frissülni.</li>
+          <li><b>Végső esetben telepítsd újra.</b> Töröld a szkriptet a Tampermonkeyból, majd
+            telepítsd a fenti gombbal.</li>
+        </ol>
+        <p class="hint" style="color:var(--muted);font-size:13.5px"><b>Figyelem:</b> a törlés a
+          szkripthez tartozó tárolt adatokat is elviszi — a mentett belépési adataidat, a figyelt
+          kurzusaidat és a panelbeállításaidat. Ezért ez tényleg csak a legvégső lépés.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="gyik" class="section-alt">
   <div class="container">
     <h2>Gyakori kérdések</h2>
     <div class="faq">
@@ -166,6 +220,13 @@
           <a href="https://github.com/rozsadomb/neptun-powerup" target="_blank" rel="noopener">ellenőrizheti a GitHubon</a>.</p>
         <p>Egy figyelmeztetés: ha használod az automatikus belépést, a jelszavad a gépeden,
           titkosítás nélkül tárolódik. Csak olyan gépen kapcsold be, amelyhez más nem fér hozzá.</p>
+      </details>
+      <details>
+        <summary>Hogyan kapom meg az új verziókat?</summary>
+        <p>Magától. A Tampermonkey nagyjából naponta egyszer megnézi, van-e újabb kiadás, és letölti.
+          Neked ezzel nincs dolgod.</p>
+        <p>Ha nem akarod kivárni, vagy gyanús, hogy elakadt valami, a <a href="#frissites">Frissítés</a>
+          szakaszban leírtuk, hogyan kérheted el azonnal — és mit nézz meg, ha mégsem frissülne.</p>
       </details>
       <details>
         <summary>Az én egyetememen is működik?</summary>
@@ -211,7 +272,7 @@
   </div>
 </section>
 
-<section id="projektrol" class="section-alt">
+<section id="projektrol">
   <div class="container">
     <h2>A projektről</h2>
     <div class="features">
