@@ -127,7 +127,7 @@ function markFor(code: string): Mark | null {
 
 export const subjectHistory: NpuModule = {
   id: "subjectHistory",
-  matches: path => path.startsWith("/hallgatoi/subjects/registration"),
+  matches: path => path.startsWith("/subjects/registration"),
   activate() {
     let destroyed = false;
 

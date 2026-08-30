@@ -41,7 +41,7 @@ function sleep(ms: number): Promise<void> {
 
 export const termMemory: NpuModule = {
   id: "termMemory",
-  matches: path => path.startsWith("/hallgatoi/exams"),
+  matches: path => path.startsWith("/exams"),
   activate() {
     let cancelled = false;
     const pageKey = location.pathname;

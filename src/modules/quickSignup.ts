@@ -174,7 +174,7 @@ function describeCourse(course: ScheduledCourse): string {
 
 export const quickSignup: NpuModule = {
   id: "quickSignup",
-  matches: path => path.startsWith("/hallgatoi/subjects/registration"),
+  matches: path => path.startsWith("/subjects/registration"),
   activate() {
     const panel = createPanel("npu-quick-signup", "NPU · Gyorsfelvétel");
     let destroyed = false;

@@ -39,8 +39,8 @@
     <a class="button button--big" href="#telepites">Telepítés 3 lépésben</a>
     <a class="button button--big button--ghost" href="#funkciok">Mit tud?</a>
   </div>
-  <p class="notice">A <b>BME</b> Neptunján tesztelve. Más egyetemek felületén egyelőre nincs kipróbálva,
-    de tervben van a támogatásuk — ha nálad működik (vagy épp nem), <a href="/visszajelzes">jelezd nekünk</a>!</p>
+  <p class="notice"><b>22 magyar egyetem</b> Neptunján ellenőrizve, hogy elindul — a funkciók teljes
+    tesztelése eddig a BME-n történt. Ha nálad működik (vagy épp nem), <a href="/visszajelzes">jelezd nekünk</a>!</p>
 </div>
 
 <section id="funkciok">
@@ -169,12 +169,16 @@
       </details>
       <details>
         <summary>Az én egyetememen is működik?</summary>
-        <p>Egyelőre kizárólag a <b>BME</b> Neptunján teszteltük — más egyetemek felületén
-          <b>nincs kipróbálva</b>, de tervben van a támogatásuk.</p>
-        <p>A Neptun ugyanaz a rendszer minden egyetemen, csak más címen fut, ezért a szkript a többi
-          Neptun-oldalon is elindul, és jó eséllyel működik. Mivel viszont nem teszteltük, előfordulhat
-          eltérés. Ha kipróbálod, <a href="/visszajelzes">írd meg, mit tapasztaltál</a> — így tudjuk
-          sorra venni a többi egyetemet is.</p>
+        <p>Jó eséllyel igen. <b>22 magyar felsőoktatási intézmény</b> Neptunját végigellenőriztük, és
+          mindegyiken elindul a szkript — köztük a BME, Debrecen, Szeged, Miskolc, Óbudai, Pannon,
+          Semmelweis, MATE, NKE, PPKE, Károli, Széchenyi, Metropolitan, MOME és Nyíregyháza.</p>
+        <p>Ez azért nem magától értetődő, mert a Neptun intézményenként más címen és <b>más útvonalon</b>
+          fut: van, ahol <code>/hallgato</code>, máshol <code>/hallgato_ng</code>, <code>/ujhallgato</code>
+          vagy épp <code>/momehw</code> — a BME <code>/hallgatoi</code> útvonala például az egyetlen a maga
+          nemében. A szkript ezért nem tippel: a Neptun saját oldaláról olvassa ki, hol fut az alkalmazás.</p>
+        <p>Amit még nem állítunk: a <b>funkciók</b> teljes körű tesztelése eddig a BME-n történt. Az
+          alkalmazás mindenhol ugyanaz, de eltérés előfordulhat. Ha kipróbálod,
+          <a href="/visszajelzes">írd meg, mit tapasztaltál</a>.</p>
       </details>
       <details>
         <summary>Mennyibe kerül?</summary>

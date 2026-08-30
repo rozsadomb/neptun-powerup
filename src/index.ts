@@ -1,4 +1,4 @@
-import { isAppPath } from "./core/base";
+import { isNeptunApp } from "./core/base";
 import { log, VERSION } from "./core/env";
 import { runModules } from "./core/modules";
 import { initRouter } from "./core/router";
@@ -18,27 +18,13 @@ import { subjectHistory } from "./modules/subjectHistory";
 import { subjectInlineControls } from "./modules/subjectInlineControls";
 import { termMemory } from "./modules/termMemory";
 
-// A @include minták tágabbak a tesztelt BME-nél, hogy más egyetemek Neptunján
-// is elinduljon a szkript. Ezért futásidőben is meggyőződünk róla, hogy tényleg
-// a Neptun hallgatói felületén vagyunk: egy véletlen találaton inkább ne
-// csináljunk semmit.
-function looksLikeNeptun(): boolean {
-  // Not startsWith: some institutions serve the app under an institution
-  // prefix (see core/base.ts), where the segment is not at the front.
-  if (!isAppPath()) {
-    return false;
-  }
-  if (location.host.toLowerCase().includes("neptun")) {
-    return true;
-  }
-  if (document.title.toLowerCase().includes("neptun")) {
-    return true;
-  }
-  return !!document.querySelector("neptun-header, neptun-main-menu, [class*='neptun-']");
-}
+// A @include minták szándékosan tágak, hogy a szkript minden egyetem Neptunján
+// elinduljon (a címek és útvonalak intézményenként eltérnek). Ezért futásidőben
+// döntjük el, hogy tényleg a Neptun hallgatói felületén vagyunk-e: egy véletlen
+// találaton inkább ne csináljunk semmit. Lásd core/base.ts.
 
 (async () => {
-  if (!looksLikeNeptun()) {
+  if (!isNeptunApp()) {
     return;
   }
   // A same-origin iframe would otherwise get a second full instance, with its

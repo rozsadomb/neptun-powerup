@@ -61,7 +61,7 @@ function formatDate(value: string): string {
 
 export const examOverview: NpuModule = {
   id: "examOverview",
-  matches: path => path.startsWith("/hallgatoi/exams"),
+  matches: path => path.startsWith("/exams"),
   activate() {
     const panel = createPanel("npu-exam-overview", "NPU · Vizsga-áttekintés");
     let destroyed = false;

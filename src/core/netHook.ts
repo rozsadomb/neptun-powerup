@@ -16,7 +16,7 @@ import { log } from "./env";
 
 export interface ApiCall {
   method: string;
-  /** Path after the /hallgatoi/api/ prefix, e.g. "SubjectApplication/UnScheduleCourse". */
+  /** Path after the app's API root, e.g. "SubjectApplication/UnScheduleCourse". */
   path: string;
   status: number;
   /** Full request URL, so listeners can read query parameters. */
