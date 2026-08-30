@@ -3,8 +3,9 @@ import { appPath } from "./base";
 // Watches SPA route changes: hooks history.pushState/replaceState and
 // listens to popstate, with a low-frequency interval as a safety net.
 //
-// Paths are reported with the institution prefix stripped, so every module can
-// match plain "/hallgatoi/..." routes regardless of where Neptun is mounted.
+// Paths are reported relative to the app's own mount point, so every module
+// matches the same routes ("/login", "/subjects/registration") no matter which
+// institution-specific path Neptun is served from. See core/base.ts.
 
 type RouteListener = (path: string) => void;
 

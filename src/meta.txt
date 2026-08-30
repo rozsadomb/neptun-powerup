@@ -7,22 +7,23 @@
 // @supportURL     https://neptun-powerup.com/visszajelzes
 // @downloadURL    https://neptun-powerup.com/npu.user.js
 // @updateURL      https://neptun-powerup.com/npu.user.js
-// A BME az egyetlen tesztelt felület. A Neptun ugyanaz a rendszer minden
-// egyetemen, ezért a szkript más Neptun-címeken is elindul — a belépési pont
-// futásidőben ellenőrzi, hogy tényleg a hallgatói felületen vagyunk-e.
+// Hol induljon el a szkript.
 //
-// A mintakészlet az eredeti NPU (solymosi/npu, src/meta.txt) listáján alapul,
-// az új felülethez igazítva: az Angular app mindig egy "hallgatoi" szegmens
-// alatt ül, de nem feltétlenül a gyökérben (lásd az ejf.hu-t). Az alsó négy
-// intézmény címében nincs benne a "neptun" szó, ezért kellenek külön.
-// @match          https://neptun.bme.hu/hallgatoi/*
-// @include        https://*neptun*/*hallgatoi*
-// @include        https://*hallgato*.*neptun*/*
-// @include        https://*/*hallgatoi/*
-// @include        https://host.sdakft.hu/*
+// 22 magyar intézmény új Neptun-felületét végigmérve a cím és az útvonal is
+// intézményenként más: az app gyökere lehet /hallgato, /hallgato_ng,
+// /hallgatoi, /hallgato2_uj, /Hallgato_NG, /ujhallgato vagy akár /momehw —
+// és a gép sem mindig a "neptun.*" portál (pl. hallgato.uni-mate.hu,
+// host.sdakft.hu). Ezért a minták szándékosan tágak, a tényleges döntést
+// pedig futásidőben hozzuk meg: <app-root> + "Neptun Web" cím (lásd
+// core/base.ts). Egy téves találaton a szkript azonnal kilép.
+// @include        https://*neptun*/*
+// @include        https://*hallgato*/*
+// @include        https://*.sdakft.hu/*
 // @include        https://netw*.nnet.sze.hu/*
 // @include        https://nappw.dfad.duf.hu/*
-// @include        https://neptun.ejf.hu/*
+// A projekt saját oldalának címében is benne van a "neptun" szó.
+// @exclude        https://neptun-powerup.com/*
+// @exclude        https://*.neptun-powerup.com/*
 // @run-at         document-idle
 // @noframes
 // @grant          GM.getValue

@@ -3,14 +3,28 @@
 **Weboldal és telepítés: https://neptun-powerup.com** · [Hibabejelentés](https://neptun-powerup.com/visszajelzes)
 
 A [Neptun PowerUp!](https://github.com/solymosi/npu) szellemi utódja az **új Neptun webes felületre** (Angular SPA).
-Tesztelve a BME Neptunján (`neptun.bme.hu/hallgatoi`); a szkript más egyetemek Neptunján is elindul
-(a rendszer mindenhol ugyanaz), de ott még nincs kipróbálva.
 
-A triggerminták az eredeti NPU listáján alapulnak, és a szkript **nem feltételezi, hogy a Neptun a
-címtartomány gyökerében ül**: több intézmény intézményi előtag alatt szolgálja ki (az eredeti NPU-nak
-emiatt kellett külön `neptun.ejf.hu/ejfhw/*` minta). Az app gyökerét a dokumentum saját
-`<base href>`-éből olvassa ki, és minden útvonal-illesztés és API-hívás ehhez képest relatív —
-enélkül a szkript elindulna az ilyen felületeken, de némán semmit sem csinálna.
+**22 magyar intézmény** Neptunján ellenőrizve, hogy a szkript elindul és helyesen ismeri fel az
+alkalmazást; a funkciók teljes körű tesztelése eddig a BME-n történt.
+
+Ez azért nem triviális, mert **az app mindenhol más útvonalon ül** — élő méréssel (2026-08-30):
+
+| app gyökere | intézmények |
+|---|---|
+| `/hallgato` | SZTE, Semmelweis, Pannon, Eszterházy, KRE, LFZE, TF, Edutus, GDF, Metropolitan, Nyíregyháza |
+| `/hallgato_ng` | Debrecen, Miskolc, Széchenyi, MATE, NKE |
+| `/hallgatoi` | **BME (egyedül)** |
+| `/hallgato2_uj` | PPKE |
+| `/Hallgato_NG` | Kodolányi |
+| `/ujhallgato` | Óbudai |
+| `/momehw`, `/bhfhw` | MOME, BHF (SDA-hosztolt — az útvonalban nincs is „hallgato”) |
+
+A gép sem mindig a `neptun.*` portál: pl. `hallgato.uni-mate.hu`, `host.sdakft.hu`,
+`www-h-ng.neptun.unideb.hu`. Ezért a szkript **semmilyen útvonalat nem feltételez**: az alkalmazás
+gyökerét a dokumentum saját `<base href>`-éből olvassa ki, és minden route-illesztés és API-hívás
+ehhez képest relatív (`/login`, `/subjects/registration`) — ez a forma minden intézményben azonos.
+A felismerés is mérésen alapul: mind a 22 helyen `<app-root>` és `Neptun Web` cím van a kiszolgált
+HTML-ben, `<neptun-*>` elem viszont **egyikben sincs** indulásker, csak az Angular bootstrap után.
 
 A régi NPU a régi ASP.NET WebForms felületre épült és azzal együtt nyugdíjba vonult. Ez a projekt nulláról írja újra a funkcionalitást, de a régi DOM-manipuláció helyett elsősorban a Neptun **REST API-jára** építve (a felderített API-t lásd: [RECON.md](RECON.md)).
 

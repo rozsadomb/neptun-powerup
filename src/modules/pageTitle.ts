@@ -10,9 +10,9 @@ const BASE_TITLE = "Neptun";
 
 // Pages without a heading of their own.
 const ROUTE_NAMES: [string, string][] = [
-  ["/hallgatoi/dashboard", "Kezdőoldal"],
-  ["/hallgatoi/calendar", "Naptár"],
-  ["/hallgatoi/login", "Bejelentkezés"],
+  ["/dashboard", "Kezdőoldal"],
+  ["/calendar", "Naptár"],
+  ["/login", "Bejelentkezés"],
 ];
 
 function currentPageName(): string | null {

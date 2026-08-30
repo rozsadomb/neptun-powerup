@@ -95,7 +95,7 @@ function seatsOf(course: CourseMeta): string {
 
 export const subjectInlineControls: NpuModule = {
   id: "subjectInlineControls",
-  matches: path => path.startsWith("/hallgatoi/subjects/registration"),
+  matches: path => path.startsWith("/subjects/registration"),
   activate() {
     let destroyed = false;
 

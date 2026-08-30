@@ -53,7 +53,7 @@ function setAngularInputValue(input: HTMLInputElement, value: string): void {
 
 export const autoLogin: NpuModule = {
   id: "autoLogin",
-  matches: path => path.startsWith("/hallgatoi/login"),
+  matches: path => path.startsWith("/login"),
   activate() {
     let destroyed = false;
     let countdownTimer: number | undefined;

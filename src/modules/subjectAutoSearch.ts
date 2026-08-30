@@ -30,7 +30,7 @@ function resultsPresent(): boolean {
 
 export const subjectAutoSearch: NpuModule = {
   id: "subjectAutoSearch",
-  matches: path => path.startsWith("/hallgatoi/subjects/registration"),
+  matches: path => path.startsWith("/subjects/registration"),
   activate() {
     let cancelled = false;
     void (async () => {

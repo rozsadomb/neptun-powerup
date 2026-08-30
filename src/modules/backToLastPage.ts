@@ -22,7 +22,7 @@ function isEnabled(): boolean {
 
 function injectLoginCheckbox(): void {
   void waitFor("button[type=submit]", { timeoutMs: 10_000 }).then(submit => {
-    if (!submit || !appPath().startsWith("/hallgatoi/login")) {
+    if (!submit || !appPath().startsWith("/login")) {
       return;
     }
     if (document.getElementById("npu-backtolast")) {
@@ -50,11 +50,11 @@ export const backToLastPage: NpuModule = {
   activate() {
     let active = true;
     onRouteChange(path => {
-      if (!active || !path.startsWith("/hallgatoi")) {
+      if (!active) {
         return;
       }
 
-      if (path.startsWith("/hallgatoi/login")) {
+      if (path.startsWith("/login")) {
         try {
           sessionStorage.setItem(FROM_LOGIN_FLAG, "1");
         } catch {
@@ -68,7 +68,7 @@ export const backToLastPage: NpuModule = {
       if (cameFromLogin) {
         sessionStorage.removeItem(FROM_LOGIN_FLAG);
         const last = storage.get<string>(...LAST_PAGE_KEY);
-        if (isEnabled() && last && last !== path && path.startsWith("/hallgatoi/dashboard")) {
+        if (isEnabled() && last && last !== path && path.startsWith("/dashboard")) {
           log(`returning to last visited page: ${last}`);
           // Full navigation on purpose: the Angular router ignores an
           // external history.pushState, a reload boots the app on the target.

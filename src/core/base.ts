@@ -1,63 +1,85 @@
-// Where the student app is mounted.
+// Where the student app is mounted, and whether this is Neptun at all.
 //
-// At BME it sits at the site root (`neptun.bme.hu/hallgatoi/...`), but that is
-// not universal: several institutions serve Neptun under an institution
-// prefix. The original NPU had to match `https://neptun.ejf.hu/ejfhw/*` for
-// exactly this reason. Hard-coding "/hallgatoi" would let the script start on
-// those sites and then do nothing at all — every route match would miss and
-// every API call would go to a path that does not exist.
+// Do not assume a path. Measured across 22 Hungarian institutions running the
+// new interface, the app root is one of at least seven different things:
 //
-// Everything else in the script works with paths relative to this base, so a
-// prefixed install behaves exactly like a root-mounted one.
+//   /hallgato      (10×)   /hallgato_ng   (5×)   /hallgatoi   (1×, BME only)
+//   /hallgato2_uj  (1×)    /Hallgato_NG   (1×)   /ujhallgato  (1×)
+//   /momehw, /bhfhw        (SDA-hosted: no "hallgato" in the path at all)
+//
+// BME's "/hallgatoi" — the one this script was built against — is the odd one
+// out. Anything hard-coded to it works on exactly one university.
+//
+// So the mount point comes from the document itself: Angular writes it into
+// <base href>. Routes are then matched relative to that root ("/login",
+// "/subjects/registration"), which is identical everywhere.
 
-const APP_SEGMENT = "hallgatoi";
-
-// Angular states its own mount point in the document: <base href="/hallgatoi/">.
-// That is authoritative, so prefer it over guessing from the current URL.
 function fromBaseTag(): string | null {
   const href = document.querySelector("base")?.getAttribute("href");
   if (!href) {
     return null;
   }
-  let path: string;
   try {
-    path = new URL(href, location.origin).pathname;
+    // Trailing slash stripped so the root concatenates cleanly: "" for a
+    // site-root install, "/hallgato_ng" otherwise.
+    return new URL(href, location.origin).pathname.replace(/\/+$/, "");
   } catch {
     return null;
   }
-  const match = new RegExp(`^(.*?)/${APP_SEGMENT}/?$`, "i").exec(path);
-  return match ? match[1] : null;
+}
+
+// Every install measured mounts the app under a single path segment, so when
+// the base tag is missing that first segment is the best available guess.
+function fromFirstSegment(): string {
+  const segment = location.pathname.split("/")[1];
+  return segment ? `/${segment}` : "";
 }
 
 function detect(): string {
   const declared = fromBaseTag();
-  if (declared !== null) {
-    return declared;
-  }
-  const match = new RegExp(`^(.*?)/${APP_SEGMENT}(?=/|$)`, "i").exec(location.pathname);
-  return match ? match[1] : "";
+  return declared !== null ? declared : fromFirstSegment();
 }
 
-// The prefix cannot change while the SPA is running, so resolve it once.
+/** The app's mount path, e.g. "" or "/hallgato_ng". */
 export const APP_BASE: string = detect();
 
-/** The API root, including any institution prefix. */
-export const API_BASE = `${APP_BASE}/${APP_SEGMENT}/api/`;
+/** The API root, under the app's own mount path. */
+export const API_BASE = `${APP_BASE}/api/`;
 
-/** True when the given path belongs to the Neptun student app. */
-export function isAppPath(pathname: string = location.pathname): boolean {
-  return new RegExp(`(^|/)${APP_SEGMENT}(/|$)`, "i").test(pathname);
+/**
+ * True when this document is the Neptun student app.
+ *
+ * Checked against the HTML the server sends, before Angular boots: every one
+ * of the 22 installs surveyed serves <app-root> and the title "Neptun Web".
+ * The <neptun-*> elements only exist after bootstrap, so they cannot be relied
+ * on at startup — they are kept only as a late fallback.
+ */
+export function isNeptunApp(): boolean {
+  if (!document.querySelector("app-root")) {
+    return false;
+  }
+  if (document.title.toLowerCase().includes("neptun")) {
+    return true;
+  }
+  if (location.host.toLowerCase().includes("neptun")) {
+    return true;
+  }
+  return !!document.querySelector("neptun-header, neptun-main-menu, [class*='neptun-']");
 }
 
 /**
- * The path with the institution prefix stripped, e.g. "/hallgatoi/exams".
- * Route matching throughout the script is written against this form.
+ * The route within the app, with the mount path removed — "/login",
+ * "/subjects/registration". Every module matches against this form, which is
+ * the same at every institution.
  */
 export function appPath(pathname: string = location.pathname): string {
   if (!APP_BASE) {
     return pathname;
   }
-  return pathname.toLowerCase().startsWith(APP_BASE.toLowerCase()) ? pathname.slice(APP_BASE.length) : pathname;
+  if (!pathname.toLowerCase().startsWith(APP_BASE.toLowerCase())) {
+    return pathname;
+  }
+  return pathname.slice(APP_BASE.length) || "/";
 }
 
 /** The inverse of appPath: turns a stored route back into a navigable URL. */
