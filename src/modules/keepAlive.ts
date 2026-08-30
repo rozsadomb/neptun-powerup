@@ -16,6 +16,10 @@ const REFRESH_MARGIN_MS = 120_000;
 const STARTUP_DELAY_MS = 5_000;
 
 export let lastRefresh: Date | null = null;
+// Whether the keep-alive is actually running, so the badge reports what is
+// true rather than assuming the module is on: it can be switched off in the
+// settings, or its activation can have thrown.
+export let running = false;
 
 // The app keeps its session countdown in memory (NGXS store) and logs the
 // user out client-side when it reaches zero. It re-reads the (refreshed)
@@ -50,6 +54,10 @@ export const keepAlive: NpuModule = {
   id: "keepAlive",
   matches: () => isLoggedIn(),
   activate() {
+    // A fresh activation means a fresh session (we deactivate on logout), so
+    // the previous session's refresh time must not linger on the badge.
+    lastRefresh = null;
+
     // When the app refreshes tokens itself, the cookie has already rotated —
     // taking our own turn right after would spend a stale cookie.
     const unsubscribe = onApiCall(call => {
@@ -64,7 +72,9 @@ export const keepAlive: NpuModule = {
     // Give the app time to finish its own startup refresh before we act.
     const startup = window.setTimeout(() => void tick(), STARTUP_DELAY_MS);
     const timer = window.setInterval(() => void tick(), CHECK_INTERVAL_MS);
+    running = true;
     return () => {
+      running = false;
       unsubscribe();
       window.clearTimeout(startup);
       window.clearInterval(timer);

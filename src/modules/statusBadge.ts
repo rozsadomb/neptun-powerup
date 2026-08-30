@@ -4,7 +4,7 @@ import { injectCss } from "../core/dom";
 import type { NpuModule } from "../core/modules";
 import { OPEN_SETTINGS_EVENT } from "../core/settings";
 import { getWatches } from "./courseWatch";
-import { lastRefresh } from "./keepAlive";
+import { lastRefresh, running as keepAliveRunning } from "./keepAlive";
 
 // Small fixed badge showing that NPU is active, plus session status. Lives
 // outside the Angular DOM so re-renders cannot remove it. Its gear button is
@@ -50,6 +50,7 @@ export const statusBadge: NpuModule = {
       #npu-badge .npu-ok { color: #7ee787; }
       #npu-badge .npu-warn { color: #ffc9c9; }
       #npu-badge .npu-watch { color: #ffd8a8; }
+      #npu-badge .npu-off { color: #c9d1d9; opacity: .7; }
       #npu-badge .npu-gear {
         pointer-events: auto;
         cursor: pointer;
@@ -82,14 +83,20 @@ export const statusBadge: NpuModule = {
       if (isSessionLost()) {
         text.innerHTML = `<b>NPU ${VERSION}</b> · <span class="npu-warn">a munkamenet lejárt, lépj be újra</span>`;
       } else if (isLoggedIn()) {
-        const refreshed = lastRefresh
-          ? `frissítve ${lastRefresh.toLocaleTimeString("hu-HU", { hour: "2-digit", minute: "2-digit" })}`
-          : "aktív";
+        // Report the keep-alive's real state. It is switchable in the
+        // settings, so claiming it is active whenever we are logged in would
+        // be a comforting lie exactly when the session is unprotected.
+        const keep = keepAliveRunning
+          ? `<span class="npu-ok">kidobásvédelem ${
+              lastRefresh
+                ? `frissítve ${lastRefresh.toLocaleTimeString("hu-HU", { hour: "2-digit", minute: "2-digit" })}`
+                : "aktív"
+            }</span>`
+          : `<span class="npu-off">kidobásvédelem ki</span>`;
         const watchCount = Object.keys(getWatches()).length;
         const watching = watchCount > 0 ? ` · <span class="npu-watch">🔔 ${watchCount} figyelve</span>` : "";
         text.innerHTML =
-          `<b>NPU ${VERSION}</b> · munkamenet: ${formatRemaining(getSessionExpiration())} · ` +
-          `<span class="npu-ok">kidobásvédelem ${refreshed}</span>${watching}`;
+          `<b>NPU ${VERSION}</b> · munkamenet: ${formatRemaining(getSessionExpiration())} · ${keep}${watching}`;
       } else {
         text.innerHTML = `<b>NPU ${VERSION}</b>`;
       }

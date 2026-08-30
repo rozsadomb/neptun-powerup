@@ -65,39 +65,48 @@ export const autoLogin: NpuModule = {
       }
     };
 
+    // Offer to save credentials when the user logs in manually. Capture
+    // phase, so it runs before Angular's own submit handling.
+    //
+    // Registered synchronously and torn down by the module's own cleanup: when
+    // this lived inside the async block below, the "no stored credentials"
+    // branch returned before the cleanup was published, so every logout/login
+    // round left another listener behind — and each one asks its own "save
+    // your credentials?" question on the next real login.
+    const captureListener = (event: Event) => {
+      if (destroyed) {
+        return;
+      }
+      const target = event.target as HTMLElement;
+      if (!target.closest("button[type=submit]")) {
+        return;
+      }
+      const userName = findUserNameInput()?.value.trim().toUpperCase() ?? "";
+      const password = findPasswordInput()?.value ?? "";
+      if (!userName || !password) {
+        return;
+      }
+      const users = getUsers();
+      const stored = users[userName];
+      if (stored && atob(stored.password) === password) {
+        storage.set("logins", host(), userName, "lastUsed", new Date().toISOString());
+        return;
+      }
+      const question = stored
+        ? `Megváltoztatod a(z) ${userName} tárolt jelszavát a most beírtra?`
+        : `Elmented a(z) ${userName} belépési adatait, hogy legközelebb egy kattintással beléphess erről a gépről?`;
+      if (confirm(question)) {
+        storage.set("logins", host(), userName, "password", btoa(password));
+        storage.set("logins", host(), userName, "lastUsed", new Date().toISOString());
+      }
+    };
+    document.addEventListener("click", captureListener, true);
+
     void (async () => {
       const userNameInput = await waitFor("input#userName, input[name=userName]");
       if (!userNameInput || destroyed) {
         return;
       }
-
-      // Offer to save credentials when the user logs in manually. Capture
-      // phase, so it runs before Angular's own submit handling.
-      const captureListener = (event: Event) => {
-        const target = event.target as HTMLElement;
-        if (!target.closest("button[type=submit]")) {
-          return;
-        }
-        const userName = findUserNameInput()?.value.trim().toUpperCase() ?? "";
-        const password = findPasswordInput()?.value ?? "";
-        if (!userName || !password) {
-          return;
-        }
-        const users = getUsers();
-        const stored = users[userName];
-        if (stored && atob(stored.password) === password) {
-          storage.set("logins", host(), userName, "lastUsed", new Date().toISOString());
-          return;
-        }
-        const question = stored
-          ? `Megváltoztatod a(z) ${userName} tárolt jelszavát a most beírtra?`
-          : `Elmented a(z) ${userName} belépési adatait, hogy legközelebb egy kattintással beléphess erről a gépről?`;
-        if (confirm(question)) {
-          storage.set("logins", host(), userName, "password", btoa(password));
-          storage.set("logins", host(), userName, "lastUsed", new Date().toISOString());
-        }
-      };
-      document.addEventListener("click", captureListener, true);
 
       const users = getUsers();
       const codes = Object.keys(users);
@@ -190,7 +199,6 @@ export const autoLogin: NpuModule = {
       }, 1000);
 
       const cleanupExtra = () => {
-        document.removeEventListener("click", captureListener, true);
         document.removeEventListener("pointerdown", abort, true);
         document.removeEventListener("keydown", abort, true);
         panel.destroy();
@@ -201,6 +209,7 @@ export const autoLogin: NpuModule = {
     return () => {
       destroyed = true;
       stopCountdown();
+      document.removeEventListener("click", captureListener, true);
       (autoLogin as { _cleanup?: () => void })._cleanup?.();
       (autoLogin as { _cleanup?: () => void })._cleanup = undefined;
     };

@@ -54,7 +54,13 @@ const EXTERNAL_QUIET_MS = 10_000;
 
 let refreshInFlight: Promise<number | null> | null = null;
 let lastExternalRefreshAt = 0;
-let sessionLost = false;
+// The access token the 401 verdict was passed on — NOT a plain boolean. The
+// verdict is about one dead session, but logging in again is an SPA route
+// change, so the script keeps running across it: a page-lifetime flag would
+// survive into the new session and could only be cleared by a manual reload.
+// It would then not just leave the badge nagging, but keep refreshTokens()
+// bailing out, so the new session would silently run with no keep-alive.
+let sessionLostForToken: string | null = null;
 
 /** Called when the app itself was seen refreshing tokens, so we back off. */
 export function noteExternalRefresh(): void {
@@ -63,7 +69,18 @@ export function noteExternalRefresh(): void {
 
 /** True once a refresh came back 401: the session is gone, stop hammering. */
 export function isSessionLost(): boolean {
-  return sessionLost;
+  if (sessionLostForToken === null) {
+    return false;
+  }
+  // Any other token — including none, on the login page — means we have moved
+  // on from the dead session, so the verdict no longer applies. This also
+  // undoes a verdict we passed while losing a refresh race: the winner's token
+  // lands in sessionStorage and the session turns out to be alive after all.
+  if (getAccessToken() !== sessionLostForToken) {
+    sessionLostForToken = null;
+    return false;
+  }
+  return true;
 }
 
 function otherTabRefreshing(): boolean {
@@ -93,30 +110,45 @@ async function doRefresh(): Promise<number | null> {
     return null;
   }
   takeLock();
-  const response = await fetch(`${API_BASE}Account/GetNewTokens`, {
-    method: "POST",
-    credentials: "include",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!response.ok) {
-    if (response.status === 401) {
-      sessionLost = true;
-      log("token refresh rejected (401) — the session is no longer valid");
-    } else {
-      log(`Token refresh failed with status ${response.status}`);
+  // The lock is a LEASE, not a single 5 s stamp. Under load a GetNewTokens can
+  // take longer than the TTL, and the other tab would then read the lock as
+  // stale and send the very same not-yet-rotated cookie — the loser of that
+  // race gets a 401 and the server logs the user out, which is exactly what
+  // this whole mechanism exists to prevent. Renewing while the request is in
+  // flight closes that window, and because the renewer dies with the tab, a
+  // tab closed mid-refresh still lets the lock expire on its own.
+  const renew = window.setInterval(takeLock, LOCK_TTL_MS / 2);
+  try {
+    const response = await fetch(`${API_BASE}Account/GetNewTokens`, {
+      method: "POST",
+      credentials: "include",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        sessionLostForToken = token;
+        log("token refresh rejected (401) — the session is no longer valid");
+      } else {
+        log(`Token refresh failed with status ${response.status}`);
+      }
+      return null;
     }
-    return null;
+    const result = (await response.json()) as { accessToken: string; sessionTimeoutInMinutes: number };
+    sessionStorage.setItem(TOKEN_KEY, result.accessToken);
+    const tokenExp = getTokenExpiration(result.accessToken);
+    if (tokenExp) {
+      sessionStorage.setItem(TOKEN_EXP_KEY, tokenExp.toISOString());
+    }
+    const sessionExp = new Date(Date.now() + result.sessionTimeoutInMinutes * 60_000);
+    sessionStorage.setItem(SESSION_EXP_KEY, sessionExp.toISOString());
+    return result.sessionTimeoutInMinutes;
+  } finally {
+    window.clearInterval(renew);
+    // Stamp on every exit path, failures included. A failed attempt may still
+    // have rotated the cookie server-side, so the quiet period has to hold
+    // even then — the old code left no lock at all after a failure.
+    takeLock();
   }
-  const result = (await response.json()) as { accessToken: string; sessionTimeoutInMinutes: number };
-  sessionStorage.setItem(TOKEN_KEY, result.accessToken);
-  const tokenExp = getTokenExpiration(result.accessToken);
-  if (tokenExp) {
-    sessionStorage.setItem(TOKEN_EXP_KEY, tokenExp.toISOString());
-  }
-  const sessionExp = new Date(Date.now() + result.sessionTimeoutInMinutes * 60_000);
-  sessionStorage.setItem(SESSION_EXP_KEY, sessionExp.toISOString());
-  takeLock();
-  return result.sessionTimeoutInMinutes;
 }
 
 /**
@@ -125,7 +157,7 @@ async function doRefresh(): Promise<number | null> {
  * the rotated cookie is never used twice.
  */
 export function refreshTokens(): Promise<number | null> {
-  if (sessionLost) {
+  if (isSessionLost()) {
     return Promise.resolve(null);
   }
   if (refreshInFlight) {
