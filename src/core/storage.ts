@@ -31,8 +31,59 @@ export async function initialize(): Promise<void> {
   }
 }
 
-function save(): void {
-  void rawSave(JSON.stringify(data));
+interface Mutation {
+  keys: string[];
+  value: unknown;
+}
+
+// Writes are serialised and re-read first, instead of dumping this tab's whole
+// snapshot. Two tabs each hold their own copy of the blob, so a blind write
+// silently discards whatever the other tab saved in the meantime — dragging a
+// panel in one tab would drop a watch or saved credentials added in the other.
+let writeChain: Promise<void> = Promise.resolve();
+
+function applyMutation(target: Record<string, unknown>, { keys, value }: Mutation): void {
+  let current = target;
+  keys.forEach((key, i) => {
+    if (i === keys.length - 1) {
+      if (value === null || value === undefined) {
+        delete current[key];
+      } else {
+        current[key] = value;
+      }
+      return;
+    }
+    if (typeof current[key] !== "object" || current[key] === null) {
+      current[key] = {};
+    }
+    current = current[key] as Record<string, unknown>;
+  });
+}
+
+// A null mutation means "wipe everything" (resetAll), which is a deliberate
+// full overwrite — but it still goes through the chain so it cannot overtake a
+// write that is already in flight.
+function persist(mutation: Mutation | null): void {
+  writeChain = writeChain
+    .then(async () => {
+      if (mutation === null) {
+        data = {};
+        await rawSave("{}");
+        return;
+      }
+      let fresh: Record<string, unknown>;
+      try {
+        fresh = JSON.parse((await rawLoad()) ?? "{}") ?? {};
+      } catch {
+        fresh = {};
+      }
+      applyMutation(fresh, mutation);
+      data = fresh;
+      await rawSave(JSON.stringify(fresh));
+    })
+    .catch(() => {
+      // One failed write must not wedge every later one.
+    });
 }
 
 export function get<T>(...keys: string[]): T | undefined {
@@ -49,26 +100,15 @@ export function get<T>(...keys: string[]): T | undefined {
 /** Wipes every stored NPU setting (watches, term memory, logins, panels...). */
 export function resetAll(): void {
   data = {};
-  save();
+  persist(null);
 }
 
 export function set(...keysAndValue: [...string[], unknown]): void {
   const value = keysAndValue[keysAndValue.length - 1];
   const keys = keysAndValue.slice(0, -1) as string[];
-  let current = data;
-  keys.forEach((key, i) => {
-    if (i === keys.length - 1) {
-      if (value === null || value === undefined) {
-        delete current[key];
-      } else {
-        current[key] = value;
-      }
-      return;
-    }
-    if (typeof current[key] !== "object" || current[key] === null) {
-      current[key] = {};
-    }
-    current = current[key] as Record<string, unknown>;
-  });
-  save();
+  const mutation: Mutation = { keys, value };
+  // Apply to this tab's copy right away, so a get() on the next line already
+  // sees it; the merge onto the stored blob happens asynchronously.
+  applyMutation(data, mutation);
+  persist(mutation);
 }
