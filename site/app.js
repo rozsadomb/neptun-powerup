@@ -118,7 +118,31 @@
     });
   }
 
+  // Kiírja a legfrissebb kiadás számát, hogy össze lehessen vetni azzal, ami
+  // a Neptunban a jelvényen látszik. Csak a fejlécet kérjük le, nem a teljes
+  // szkriptet — a verzió az első pár száz bájtban van.
+  function initVersion() {
+    var slot = document.getElementById("latestVersion");
+    if (!slot) return;
+    fetch("/npu.user.js", { headers: { Range: "bytes=0-2047" } })
+      .then(function (response) {
+        if (!response.ok && response.status !== 206) throw new Error(String(response.status));
+        return response.text();
+      })
+      .then(function (text) {
+        var match = text.match(/@version\s+([0-9]+\.[0-9]+\.[0-9]+)/);
+        if (!match) throw new Error("no version");
+        slot.textContent = "v" + match[1];
+      })
+      .catch(function () {
+        // Kényelmi információ: ha nem sikerül, ne látsszon hibásnak az oldal.
+        var row = slot.closest(".notice");
+        if (row) row.hidden = true;
+      });
+  }
+
   initInstallWizard();
   initFeedbackForm();
   initBmac();
+  initVersion();
 })();
