@@ -109,3 +109,25 @@ Ekkor a statikus oldal és az `/api/feedback` is fut. A GitHub-token nélkül az
 npx wrangler dev --port 8788 \
   --var GITHUB_TOKEN:<token> --var GITHUB_REPO:rozsadomb/neptun-powerup
 ```
+
+## 6. A régi weboldal visszaállítása
+
+A 2026-09-02-i újratervezés előtti weboldal a `regi-weboldal` gitágon és tagen
+van megőrizve (ugyanarra a commitra mutatnak). Ha vissza kell hozni, két út van:
+
+**Gitből, tartósan** (a `main`-re kerül, és a push után magától élesedik):
+
+```bash
+git checkout regi-weboldal -- site
+git commit -m "Weboldal: visszaállás a régi változatra"
+git push
+```
+
+Ez csak a `site/` mappát állítja vissza; a szkript, a worker és a build érintetlen
+marad. (A `site/fonts/` mappa a régi változatban nem létezett, a checkout azt is
+eltünteti, ez rendben van.) Az új változat ugyanígy visszahozható a `main` korábbi
+commitjából.
+
+**Cloudflare-en, azonnal, git nélkül:** a Worker **Deployments** listájában bármelyik
+korábbi deploy mellett van **Rollback**. Ez percek alatt visszaáll, de a következő
+push újra a `main` tartalmát élesíti, ezért hosszabb távra a git-utat használd.
