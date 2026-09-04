@@ -1,6 +1,6 @@
 {
   "name": "npu-ng",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "description": "Neptun PowerUp! NG – felturbózza az új Neptun webes felületét",
   "private": true,
   "type": "module",
@@ -8,7 +8,8 @@
     "build": "node build.mjs",
     "build:site": "npm run build && cp dist/npu.user.js site/npu.user.js && node -e \"const p=require('./package.json');require('fs').writeFileSync('site/version.json',JSON.stringify({version:p.version})+'\\n')\"",
     "watch": "node build.mjs --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node test/run.mjs"
   },
   "license": "MIT",
   "devDependencies": {
