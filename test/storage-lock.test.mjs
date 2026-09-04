@@ -1,0 +1,31 @@
+// A) storage: két fül nem írhatja felül egymás adatait (read-modify-write).
+// B) api: a fülök közti frissítési zár lease — nem jár le a saját, lassú kérése alatt.
+const [, , STORAGE, API] = process.argv;
+const results = []; const check = (label, actual, expected) => { const pass = actual === expected; results.push(pass); console.log(`  ${pass ? "✓" : "✗ FAIL"}  ${label}${pass ? "" : `  (kapott: ${actual}, várt: ${expected})`}`); };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const backing = new Map();
+globalThis.localStorage = { getItem: k => (backing.has(k) ? backing.get(k) : null), setItem: (k, v) => backing.set(k, String(v)), removeItem: k => backing.delete(k) };
+globalThis.location = { pathname: "/hallgatoi/dashboard", origin: "https://neptun.bme.hu", host: "neptun.bme.hu" };
+globalThis.document = { title: "Neptun Web", querySelector: s => (s === "base" ? { getAttribute: () => "/hallgatoi/" } : null) };
+globalThis.navigator = { userAgent: "test" };
+globalThis.sessionStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+globalThis.window = { setInterval, clearInterval };
+console.log("A) két fül, közös tároló");
+const tab1 = await import(`../${STORAGE}?tab=1`), tab2 = await import(`../${STORAGE}?tab=2`);
+await tab1.initialize(); await tab2.initialize();
+tab1.set("watches", "t:k", { courseCode: "T1" }); await sleep(60);
+tab2.set("panels", "p", { x: 1 }); await sleep(60);
+const stored = JSON.parse(backing.get("npu-ng:data") ?? "{}");
+check("a 2. fül írása megmaradt", !!stored.panels?.p, true);
+check("az 1. fül figyelése IS megmaradt", stored.watches?.["t:k"]?.courseCode, "T1");
+check("a 2. fül látja az 1. fül adatát", !!tab2.get("watches", "t:k"), true);
+console.log("B) a zár lease (7 mp-es kérés, 5 mp-es zár)");
+const b64 = o => Buffer.from(JSON.stringify(o)).toString("base64url");
+const jwt = n => `${b64({ alg: "HS256" })}.${b64({ sub: n, exp: Math.floor(Date.now() / 1000) + 300 })}.s`;
+let release; globalThis.sessionStorage = { _v: jwt("a"), getItem(k) { return k === "access_token" ? this._v : null; }, setItem(k, v) { if (k === "access_token") this._v = v; }, removeItem() {} };
+globalThis.fetch = async () => { await new Promise(r => (release = r)); return { ok: true, status: 200, json: async () => ({ accessToken: jwt("b"), sessionTimeoutInMinutes: 30 }) }; };
+const api = await import("../" + API); const inFlight = api.refreshTokens();
+const age = () => Date.now() - Number(backing.get("npu-ng:refresh-lock"));
+await sleep(6200); check(`a zár a kérés közben is friss (${age()} ms < 5000)`, age() < 5000, true);
+release(); await inFlight; await sleep(20); check("a kérés után is le van stempliezve", age() < 5000, true);
+const failed = results.filter(r => !r).length; console.log(failed === 0 ? `MIND A(Z) ${results.length} RENDBEN` : `${failed} BUKOTT`); process.exit(failed ? 1 : 0);

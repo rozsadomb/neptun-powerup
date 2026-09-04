@@ -1,4 +1,6 @@
+import { diagDump } from "../core/diag";
 import { VERSION } from "../core/env";
+import { isActivityPingEnabled, setActivityPingEnabled } from "./keepAlive";
 import type { NpuModule } from "../core/modules";
 import { isModuleEnabled, OPEN_SETTINGS_EVENT, setModuleEnabled } from "../core/settings";
 import * as storage from "../core/storage";
@@ -21,7 +23,13 @@ const ENTRIES: SettingEntry[] = [
   {
     moduleId: "keepAlive",
     label: "Kidobásvédelem",
-    description: "A munkamenet életben tartása, hogy a Neptun ne léptessen ki 30 percenként.",
+    description: "A munkamenet életben tartása, hogy a Neptun ne léptessen ki tétlenség miatt (a limit egyetemenként más: BME 30, ÓE 15 perc).",
+  },
+  {
+    label: "Tevékenység-jelzés a szervernek (kísérleti)",
+    description:
+      "4 percenként egy apró, csak olvasó kérés (UserInfo) — hátha a szerver csak valódi kérésre hosszabbítja a munkamenetet, a token-frissítésre nem. Semmit nem módosít.",
+    custom: { get: isActivityPingEnabled, set: setActivityPingEnabled },
   },
   {
     moduleId: "quickSignup",
@@ -112,6 +120,37 @@ function buildPanel(onClose: () => void): Panel {
     });
     panel.body.appendChild(row);
   });
+
+  // Diagnostics: the log never leaves the machine on its own. The button puts
+  // it on the clipboard; where it goes from there is the user's decision.
+  const diagBox = el(
+    `<div class="npu-item" style="display:block">` +
+      `<span class="npu-item__title" style="display:block">Diagnosztika</span>` +
+      `<span class="npu-item__meta" style="display:block">A napló csak időpontokat, HTTP-státuszokat, ` +
+      `időtartamokat és a fül láthatóságát tartalmazza — tokent, sütit, Neptun-kódot, nevet, kérés- vagy ` +
+      `válasz-tartalmat nem. Sehova nem küldjük el: a gombbal a vágólapra másolod, és te döntöd el, hova illeszted be.</span>` +
+      `<button class="npu-button npu-copy-diag" style="margin-top:6px">Napló másolása</button>` +
+      `</div>`
+  );
+  const copyButton = diagBox.querySelector<HTMLButtonElement>(".npu-copy-diag")!;
+  copyButton.addEventListener("click", async () => {
+    const text = diagDump();
+    try {
+      await navigator.clipboard.writeText(text);
+      copyButton.textContent = "Másolva ✓";
+    } catch {
+      // No clipboard access (older browser / no permission): show it for manual copying.
+      const area = document.createElement("textarea");
+      area.readOnly = true;
+      area.value = text;
+      area.style.cssText = "width:100%;height:160px;margin-top:6px;font:11px/1.4 monospace";
+      diagBox.appendChild(area);
+      area.select();
+      copyButton.textContent = "Jelöld ki és másold (Ctrl+C)";
+    }
+    window.setTimeout(() => (copyButton.textContent = "Napló másolása"), 2500);
+  });
+  panel.body.appendChild(diagBox);
 
   const footer = el(
     `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">` +

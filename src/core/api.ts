@@ -1,4 +1,5 @@
 import { API_BASE } from "./base";
+import { diag, fmtDuration, hhmmss } from "./diag";
 import { log } from "./env";
 
 // Thin client for the new Neptun REST API. The Angular app keeps its access
@@ -29,6 +30,16 @@ export function getTokenExpiration(token: string): Date | null {
   try {
     const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
     return typeof payload.exp === "number" ? new Date(payload.exp * 1000) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Decodes the iat claim (seconds) of a JWT; null if unparseable.
+export function getTokenIssuedAt(token: string): Date | null {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof payload.iat === "number" ? new Date(payload.iat * 1000) : null;
   } catch {
     return null;
   }
@@ -79,6 +90,7 @@ export function isSessionLost(): boolean {
   // lands in sessionStorage and the session turns out to be alive after all.
   if (getAccessToken() !== sessionLostForToken) {
     sessionLostForToken = null;
+    diag("a „munkamenet lejárt” ítélet feloldva: másik token jelent meg (új belépés)");
     return false;
   }
   return true;
@@ -111,6 +123,8 @@ async function doRefresh(): Promise<number | null> {
     return null;
   }
   takeLock();
+  const expBefore = getTokenExpiration(token);
+  diag(`frissítés indul (a token ${expBefore ? hhmmss(expBefore.getTime()) + "-kor jár le" : "lejárata ismeretlen"})`);
   // The lock is a LEASE, not a single 5 s stamp. Under load a GetNewTokens can
   // take longer than the TTL, and the other tab would then read the lock as
   // stale and send the very same not-yet-rotated cookie — the loser of that
@@ -120,16 +134,29 @@ async function doRefresh(): Promise<number | null> {
   // tab closed mid-refresh still lets the lock expire on its own.
   const renew = window.setInterval(takeLock, LOCK_TTL_MS / 2);
   try {
-    const response = await fetch(`${API_BASE}Account/GetNewTokens`, {
-      method: "POST",
-      credentials: "include",
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE}Account/GetNewTokens`, {
+        method: "POST",
+        credentials: "include",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (error) {
+      diag(`frissítés HÁLÓZATI HIBA: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
     if (!response.ok) {
       if (response.status === 401) {
         sessionLostForToken = token;
+        const sessionExp = getSessionExpiration();
+        const remaining = sessionExp ? sessionExp.getTime() - Date.now() : null;
+        diag(
+          `frissítés ELUTASÍTVA: HTTP 401 — a szerver szerint a munkamenet lejárt` +
+            (remaining !== null ? `, miközben a jelvény szerint még ${fmtDuration(remaining)} volt hátra` : "")
+        );
         log("token refresh rejected (401) — the session is no longer valid");
       } else {
+        diag(`frissítés sikertelen: HTTP ${response.status}`);
         log(`Token refresh failed with status ${response.status}`);
       }
       return null;
@@ -142,6 +169,10 @@ async function doRefresh(): Promise<number | null> {
     }
     const sessionExp = new Date(Date.now() + result.sessionTimeoutInMinutes * 60_000);
     sessionStorage.setItem(SESSION_EXP_KEY, sessionExp.toISOString());
+    diag(
+      `frissítés OK — új token ${tokenExp ? hhmmss(tokenExp.getTime()) : "?"}-kor jár le; ` +
+        `a szerver ${result.sessionTimeoutInMinutes} perces munkamenetet jelez (→ ${hhmmss(sessionExp.getTime())})`
+    );
     return result.sessionTimeoutInMinutes;
   } finally {
     window.clearInterval(renew);

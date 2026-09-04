@@ -81,7 +81,7 @@ export const statusBadge: NpuModule = {
     // hover state.
     const render = () => {
       if (isSessionLost()) {
-        text.innerHTML = `<b>NPU ${VERSION}</b> · <span class="npu-warn">a munkamenet lejárt, lépj be újra</span>`;
+        text.innerHTML = `<b>NPU ${VERSION}</b> · <span class="npu-warn">a munkamenet lejárt, lépj be újra</span> · <span class="npu-off">⚙ → napló</span>`;
       } else if (isLoggedIn()) {
         // Report the keep-alive's real state. It is switchable in the
         // settings, so claiming it is active whenever we are logged in would
