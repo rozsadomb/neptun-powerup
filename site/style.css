@@ -573,6 +573,24 @@ form.feedback .hint { margin-top: 8px; }
   .form-status.ok { background: rgb(47 158 68 / .15); border-color: rgb(47 158 68 / .4); color: #9ae6a8; }
   .form-status.err { background: rgb(224 49 49 / .15); border-color: rgb(224 49 49 / .4); color: #ffb3b3; }
 }
+.privacy { border: 1px solid var(--line); border-radius: var(--radius-input); padding: 0 16px; background: var(--surface); }
+.privacy summary {
+  list-style: none; cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  padding: 14px 0; font-weight: 600; font-size: .9375rem; color: var(--ink);
+}
+.privacy summary::-webkit-details-marker { display: none; }
+.privacy summary .plus {
+  width: 26px; height: 26px; border-radius: 999px; flex: 0 0 auto;
+  border: 1px solid var(--line-strong); color: var(--ink);
+  display: grid; place-items: center;
+  transition: transform 220ms var(--ease-out), background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+.privacy summary .plus .icon { width: 12px; height: 12px; }
+.privacy[open] summary .plus { transform: rotate(45deg); background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.privacy > div { padding: 2px 0 16px; color: var(--muted); font-size: .875rem; line-height: 1.55; text-wrap: pretty; }
+.privacy p + p { margin-top: 8px; }
+.privacy strong { color: var(--text); }
 @media (max-width: 900px) { .fb { grid-template-columns: 1fr; } }
 .notfound { text-align: center; padding-block: clamp(80px, 14vw, 160px); }
 .notfound .code404 { font-family: var(--mono); font-size: clamp(4rem, 3rem + 6vw, 8rem); font-weight: 600; letter-spacing: -.04em; line-height: 1; color: var(--ink); }
@@ -598,6 +616,6 @@ form.feedback .hint { margin-top: 8px; }
   .marquee ul { flex-wrap: wrap; gap: 10px 0; }
   .marquee ul + ul { display: none; }
   .marquee li { line-height: 1.6; }
-  .btn, .btn__ic, .npu-button, .nav__toggle span, .menu a, .faq summary .plus { transition: none; }
+  .btn, .btn__ic, .npu-button, .nav__toggle span, .menu a, .faq summary .plus, .privacy summary .plus { transition: none; }
   .notif { transition: opacity 160ms ease; transform: none; }
 }

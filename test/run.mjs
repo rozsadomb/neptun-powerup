@@ -22,6 +22,7 @@ const suites = [
   ["test/session.test.mjs", [`${out}/api.mjs`]],
   ["test/storage-lock.test.mjs", [`${out}/storage.mjs`, `${out}/api.mjs`]],
   ["test/universities.test.mjs", ["dist/npu.user.js", `${out}/base.mjs`]],
+  ["test/feedback.test.mjs", []],
 ];
 let failed = 0;
 for (const [file, args] of suites) {

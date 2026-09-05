@@ -156,8 +156,14 @@
         .then(function (result) {
           if (result.ok && result.data.url) {
             form.reset();
-            show("ok", "Köszönjük, a bejelentésedet rögzítettük. " +
-              '<a href="' + result.data.url + '" target="_blank" rel="noopener">Itt tudod követni</a>.');
+            var message = "Köszönjük, a bejelentésedet rögzítettük. " +
+              '<a href="' + result.data.url + '" target="_blank" rel="noopener">Itt tudod követni</a>.';
+            // Az email cím a privát tárolóba megy, nem a nyilvános issue-ba. Ha ez
+            // épp nem elérhető, a bejelentő tudja meg, hogy nem várhat választ.
+            if (result.data.contactSaved === false) {
+              message += " Az email címedet viszont most nem tudtuk elmenteni, ezért erre a bejelentésre nem tudunk emailben válaszolni.";
+            }
+            show("ok", message);
           } else {
             show("err", result.data && result.data.error
               ? result.data.error
@@ -172,6 +178,20 @@
           submit.textContent = "Elküldés";
         });
     });
+  }
+
+  // A "90 nap" a szerver beállításából jön (FEEDBACK_TTL_DAYS), hogy a szöveg
+  // ne szakadjon el a valóságtól, ha az üzemeltető átállítja.
+  function initFeedbackTtl() {
+    var slots = document.querySelectorAll("[data-ttl-days]");
+    if (!slots.length) return;
+    fetch("/api/health")
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (data) {
+        if (!data || !data.feedbackTtlDays) return;
+        slots.forEach(function (slot) { slot.textContent = data.feedbackTtlDays; });
+      })
+      .catch(function () {});
   }
 
   function initBmac() {
@@ -377,6 +397,7 @@
   initNav();
   initInstallWizard();
   initFeedbackForm();
+  initFeedbackTtl();
   initBmac();
   initVersion();
   initReveal();
