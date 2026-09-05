@@ -7,7 +7,7 @@ const backing = new Map();
 globalThis.localStorage = { getItem: k => (backing.has(k) ? backing.get(k) : null), setItem: (k, v) => backing.set(k, String(v)), removeItem: k => backing.delete(k) };
 globalThis.location = { pathname: "/hallgatoi/dashboard", origin: "https://neptun.bme.hu", host: "neptun.bme.hu" };
 globalThis.document = { title: "Neptun Web", querySelector: s => (s === "base" ? { getAttribute: () => "/hallgatoi/" } : null) };
-globalThis.navigator = { userAgent: "test" };
+Object.defineProperty(globalThis, "navigator", { value: { userAgent: "test" }, configurable: true, writable: true });
 globalThis.sessionStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 globalThis.window = { setInterval, clearInterval };
 console.log("A) két fül, közös tároló");

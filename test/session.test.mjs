@@ -5,7 +5,7 @@ const API = process.argv[2];
 function makeStore() { const m = new Map(); return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) }; }
 globalThis.location = { pathname: "/hallgatoi/dashboard", origin: "https://neptun.bme.hu", host: "neptun.bme.hu" };
 globalThis.document = { title: "Neptun Web", querySelector: s => (s === "base" ? { getAttribute: () => "/hallgatoi/" } : null) };
-globalThis.navigator = { userAgent: "test" };
+Object.defineProperty(globalThis, "navigator", { value: { userAgent: "test" }, configurable: true, writable: true });
 globalThis.sessionStorage = makeStore();
 globalThis.localStorage = makeStore();
 globalThis.window = { setInterval, clearInterval };
