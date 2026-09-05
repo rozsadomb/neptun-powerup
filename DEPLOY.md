@@ -6,7 +6,7 @@ frissített scriptet is maguktól megkapják.
 
 **Felállás:** Cloudflare **Worker + static assets** (`wrangler.jsonc`). A `site/`
 mappát a Workers assets szolgálja ki, a `worker/` mappában lévő kód pedig
-kizárólag az `/api/*` útvonalakon fut (`run_worker_first`).
+kizárólag az `/api/*` és az `/admin` útvonalakon fut (`run_worker_first`).
 
 > A régi Pages Functions modell (`functions/` mappa) itt **nem** működik: a
 > Cloudflare ilyenkor „csak statikus assetek” projektként hozza létre, amihez
@@ -59,6 +59,55 @@ be van-e állítva mindkettő (az értéküket sosem mutatja).
 Amíg ez nincs beállítva, az űrlap udvarias hibaüzenetet ad, és a felhasználót a
 GitHub issue-khoz irányítja — tehát semmi nem törik el.
 
+## 2b. A bejelentések privát tárolója és az admin oldal (GDPR)
+
+Az űrlapon megadott email cím **nem kerül a nyilvános GitHub issue-ba**: oda csak a
+bejelentés szövege megy. A teljes bejelentést (szöveg + a megadott email cím) a Worker
+egy privát Cloudflare KV-tárolóba teszi az issue számához kötve, ahonnan
+`FEEDBACK_TTL_DAYS` (alapból 90) nap után magától törlődik. A karbantartó a
+**https://neptun-powerup.com/admin** oldalon látja őket egy tokennel: onnan tud emailt
+írni, elolvasni a szöveget, és törölni.
+
+Amíg ez nincs beállítva, semmi nem törik el: az issue megnyílik, az űrlap pedig
+megmondja a bejelentőnek, hogy az email címét most nem tudta elmenteni.
+
+1. **KV-névtér létrehozása** (egyszer). Helyben, bejelentkezve:
+
+   ```bash
+   npx wrangler login
+   ```
+
+   ```bash
+   npx wrangler kv namespace create FEEDBACK
+   ```
+
+   A kimenetben egy `id` van. (Dashboardon ugyanez: **Storage & Databases** → **KV** →
+   **Create**, a név tetszőleges, az ID-t onnan is kimásolhatod.)
+2. Az ID-t a `wrangler.jsonc` `kv_namespaces` sorába kell írni, és a sort bekapcsolni
+   (a fájlban ki van kommentezve, a helye jelölve). A `binding` maradjon `FEEDBACK`.
+3. **Admin token.** Generálj egy hosszú, véletlen értéket:
+
+   ```bash
+   openssl rand -hex 32
+   ```
+
+   Cloudflare → a Worker → **Settings** → **Variables and secrets** → **Add**:
+
+   | Név | Típus | Érték |
+   |---|---|---|
+   | `ADMIN_TOKEN` | **Secret** | a generált érték |
+
+4. Push (a `wrangler.jsonc` változása miatt), majd a **/api/health** mutatja:
+   `feedbackStoreConfigured: true`, `adminTokenConfigured: true`.
+5. Nyisd meg a **/admin** oldalt, add meg a tokent. A böngésző megjegyzi
+   (a „Kilépés” gomb törli).
+
+A megőrzési időt a `wrangler.jsonc` `FEEDBACK_TTL_DAYS` értéke szabja meg; az űrlap
+és az adatkezelési tájékoztató a számot a `/api/health`-ből olvassa, tehát elég itt
+átírni. A korábbi issue-kban kézzel bent maradt email címeket a GitHubon kell
+kiszerkeszteni, és az issue „edited” előzményéből is törölni (a szerkesztési előzmény
+mellett a három pont → *Delete*), különben ott továbbra is látható marad.
+
 ## 3. Saját domain — `neptun-powerup.com`
 
 A projekt címe **https://neptun-powerup.com**; a script fejléce (`src/meta.txt`) és a
@@ -109,6 +158,16 @@ Ekkor a statikus oldal és az `/api/feedback` is fut. A GitHub-token nélkül az
 npx wrangler dev --port 8788 \
   --var GITHUB_TOKEN:<token> --var GITHUB_REPO:rozsadomb/neptun-powerup
 ```
+
+A privát tároló és az admin oldal is kipróbálható helyben. Ehhez a KV-kötés legyen
+bekapcsolva a `wrangler.jsonc`-ben (helyi módban az id-t a wrangler nem ellenőrzi,
+a KV a gépeden, a `.wrangler/` mappában él), a token pedig változóként adható:
+
+```bash
+npx wrangler dev --port 8788 --var ADMIN_TOKEN:proba
+```
+
+Utána a http://localhost:8788/admin oldalon a `proba` tokennel lehet belépni.
 
 ## 6. A régi weboldal visszaállítása
 

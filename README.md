@@ -65,7 +65,7 @@ Kézi telepítéshez: buildeld a szkriptet (lásd lent), majd nyisd meg a `dist/
 ## Weboldal
 
 A `site/` mappában statikus HTML/CSS/JS, keretrendszer nélkül; a `worker/` mappában egy vékony
-Cloudflare Worker, amely a visszajelzés-űrlapból GitHub issue-t nyit (`wrangler.jsonc`).
+Cloudflare Worker, amely a visszajelzés-űrlapból GitHub issue-t nyit. A nyilvános issue-ba csak a szöveg kerül; a teljes bejelentés a megadott email címmel egy privát KV-tárolóba megy, amit a karbantartó az `/admin` oldalon lát (`wrangler.jsonc`, `DEPLOY.md` 2b).
 A Cloudflare minden pushnál újrabuildel: `npm run build:site`, a statikus mappa a `site`
 (így a friss `npu.user.js` is mindig felkerül az oldalra).
 

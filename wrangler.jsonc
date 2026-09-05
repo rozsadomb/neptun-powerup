@@ -3,7 +3,7 @@
   //
   // A régi Pages Functions modell (functions/ mappa) helyett ez a jelenlegi,
   // támogatott felállás: a site/ mappát a Workers assets szolgálja ki, és a
-  // Worker kód KIZÁRÓLAG az /api/* útvonalakon fut (run_worker_first).
+  // Worker kód KIZÁRÓLAG az /api/* és az /admin útvonalakon fut (run_worker_first).
   // Enélkül a projekt "csak statikus assetek" lenne, amihez a Cloudflare nem
   // enged környezeti változót adni — így a visszajelzés-űrlap sem működne.
   "name": "neptun-powerup",
@@ -12,14 +12,24 @@
   "assets": {
     "directory": "./site",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"],
+    // Az /admin a karbantartó privát oldala: a Worker adja, nem statikus fájl.
+    "run_worker_first": ["/api/*", "/admin"],
     "not_found_handling": "404-page"
   },
   // A repo neve nem titok, ezért itt a helye: így egyedül a GITHUB_TOKEN-t
   // kell kézzel felvenni a Cloudflare-en (Secretként), és nem lehet elfelejteni.
   "vars": {
-    "GITHUB_REPO": "rozsadomb/neptun-powerup"
+    "GITHUB_REPO": "rozsadomb/neptun-powerup",
+    // Ennyi nap után törlődik magától a bejelentés privát másolata az email
+    // címmel együtt (GDPR). Az űrlap és a tájékoztató szövege is innen veszi a számot.
+    "FEEDBACK_TTL_DAYS": 90
   },
+  // A bejelentések privát tárolója (KV): a teljes szöveg + a megadott email cím.
+  // Egyszeri beállítás, lásd DEPLOY.md 2b:
+  //   npx wrangler kv namespace create FEEDBACK
+  // A kapott id-t ide kell írni, és a sort bekapcsolni. Amíg nincs bekötve, az
+  // űrlap működik, csak az email címet nem tudja elmenteni (és ezt meg is mondja).
+  // "kv_namespaces": [{ "binding": "FEEDBACK", "id": "IDE_A_NAMESPACE_ID" }],
   "observability": {
     "enabled": true
   }
