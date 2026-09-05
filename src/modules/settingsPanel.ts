@@ -1,6 +1,6 @@
 import { diagDump } from "../core/diag";
 import { VERSION } from "../core/env";
-import { isActivityPingEnabled, setActivityPingEnabled } from "./keepAlive";
+import { isActivityPingEnabled, isAppRefreshEnabled, setActivityPingEnabled, setAppRefreshEnabled } from "./keepAlive";
 import type { NpuModule } from "../core/modules";
 import { isModuleEnabled, OPEN_SETTINGS_EVENT, setModuleEnabled } from "../core/settings";
 import * as storage from "../core/storage";
@@ -26,9 +26,15 @@ const ENTRIES: SettingEntry[] = [
     description: "A munkamenet életben tartása, hogy a Neptun ne léptessen ki tétlenség miatt (a limit egyetemenként más: BME 30, ÓE 15 perc).",
   },
   {
+    label: "Frissítés a Neptun saját mechanizmusán át (kísérleti)",
+    description:
+      "A token-frissítést nem a szkript küldi, hanem megkéri rá magát a Neptunt — pontosan úgy frissít, ahogy magától tenné. Ha a Neptun nem reagál 10 mp-en belül, a szkript maga frissít.",
+    custom: { get: isAppRefreshEnabled, set: setAppRefreshEnabled },
+  },
+  {
     label: "Tevékenység-jelzés a szervernek (kísérleti)",
     description:
-      "4 percenként egy apró, csak olvasó kérés (UserInfo) — hátha a szerver csak valódi kérésre hosszabbítja a munkamenetet, a token-frissítésre nem. Semmit nem módosít.",
+      "4 percenként egy apró, csak olvasó kérés (UserInfo). Egy debreceni naplóban nem segített, ezért alapból ki van kapcsolva; más egyetemen még érdemes lehet kipróbálni.",
     custom: { get: isActivityPingEnabled, set: setActivityPingEnabled },
   },
   {
@@ -126,9 +132,11 @@ function buildPanel(onClose: () => void): Panel {
   const diagBox = el(
     `<div class="npu-item" style="display:block">` +
       `<span class="npu-item__title" style="display:block">Diagnosztika</span>` +
-      `<span class="npu-item__meta" style="display:block">A napló csak időpontokat, HTTP-státuszokat, ` +
-      `időtartamokat és a fül láthatóságát tartalmazza — tokent, sütit, Neptun-kódot, nevet, kérés- vagy ` +
-      `válasz-tartalmat nem. Sehova nem küldjük el: a gombbal a vágólapra másolod, és te döntöd el, hova illeszted be.</span>` +
+      `<span class="npu-item__meta" style="display:block">A napló időpontokat, HTTP-státuszokat, időtartamokat, ` +
+      `a fül láthatóságát, a Neptun saját kéréseinek útvonalát (paraméterek nélkül), elutasított frissítésnél a szerver ` +
+      `hibaüzenetét (token, azonosító, email kiszűrve) és a szerver óraeltérését tartalmazza — tokent, sütit, Neptun-kódot, ` +
+      `nevet, kérés- vagy válasz-tartalmat nem. Sehova nem küldjük el: a gombbal a vágólapra másolod, és te döntöd el, ` +
+      `hova illeszted be (a visszajelzés-űrlapba belefér).</span>` +
       `<button class="npu-button npu-copy-diag" style="margin-top:6px">Napló másolása</button>` +
       `</div>`
   );

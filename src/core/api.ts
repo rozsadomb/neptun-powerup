@@ -1,5 +1,5 @@
 import { API_BASE } from "./base";
-import { diag, fmtDuration, hhmmss } from "./diag";
+import { diag, diagContext, fmtDuration, hhmmss, sanitize } from "./diag";
 import { log } from "./env";
 
 // Thin client for the new Neptun REST API. The Angular app keeps its access
@@ -136,23 +136,42 @@ async function doRefresh(): Promise<number | null> {
   try {
     let response: Response;
     try {
+      // Shaped like the app's own call (Angular HttpClient POST with an empty
+      // JSON body), so a server that inspects the body or content type sees
+      // no difference between the two.
       response = await fetch(`${API_BASE}Account/GetNewTokens`, {
         method: "POST",
         credentials: "include",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json, text/plain, */*",
+        },
+        body: "{}",
       });
     } catch (error) {
       diag(`frissítés HÁLÓZATI HIBA: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
+    // The server's clock against this machine's (whole seconds only).
+    const serverDate = Date.parse(response.headers?.get("Date") ?? "");
+    const skew = Number.isFinite(serverDate) ? ` [szerveróra eltérése ${Math.round((serverDate - Date.now()) / 1000)} mp]` : "";
     if (!response.ok) {
       if (response.status === 401) {
         sessionLostForToken = token;
         const sessionExp = getSessionExpiration();
         const remaining = sessionExp ? sessionExp.getTime() - Date.now() : null;
+        let body = "";
+        try {
+          body = sanitize(await response.text());
+        } catch {
+          // the message is a bonus, its absence is not an error
+        }
         diag(
           `frissítés ELUTASÍTVA: HTTP 401 — a szerver szerint a munkamenet lejárt` +
-            (remaining !== null ? `, miközben a jelvény szerint még ${fmtDuration(remaining)} volt hátra` : "")
+            (remaining !== null ? `, miközben a jelvény szerint még ${fmtDuration(remaining)} volt hátra` : "") +
+            `; ${diagContext()}${skew}` +
+            (body ? `; a szerver üzenete: ${body}` : "")
         );
         log("token refresh rejected (401) — the session is no longer valid");
       } else {
@@ -171,7 +190,7 @@ async function doRefresh(): Promise<number | null> {
     sessionStorage.setItem(SESSION_EXP_KEY, sessionExp.toISOString());
     diag(
       `frissítés OK — új token ${tokenExp ? hhmmss(tokenExp.getTime()) : "?"}-kor jár le; ` +
-        `a szerver ${result.sessionTimeoutInMinutes} perces munkamenetet jelez (→ ${hhmmss(sessionExp.getTime())})`
+        `a szerver ${result.sessionTimeoutInMinutes} perces munkamenetet jelez (→ ${hhmmss(sessionExp.getTime())})${skew}`
     );
     return result.sessionTimeoutInMinutes;
   } finally {

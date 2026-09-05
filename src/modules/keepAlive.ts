@@ -9,7 +9,7 @@ import {
   noteExternalRefresh,
   refreshTokens,
 } from "../core/api";
-import { diag, fmtDuration, hhmmss } from "../core/diag";
+import { diag, fmtDuration, hhmmss, noteAppCall, sanitize, setLoginTime } from "../core/diag";
 import { log } from "../core/env";
 import type { NpuModule } from "../core/modules";
 import { onApiCall } from "../core/netHook";
@@ -27,10 +27,22 @@ const CHECK_INTERVAL_MS = 20_000;
 const REFRESH_MARGIN_MS = 120_000;
 const STARTUP_DELAY_MS = 5_000;
 
-// Experimental: one tiny read-only request at this interval, in case the
-// server only slides its session window on ordinary requests and not on the
-// token refresh itself (suspected where sessions are 15 minutes and expire
-// despite successful refreshes). Switchable in the settings panel.
+// Experiment A (default ON): let the APP do the refreshing. A diagnostic log
+// from Debrecen showed sessions dying 12–13 minutes after login despite our
+// refreshes and our ordinary read-only requests all succeeding — so either the
+// server enforces an absolute limit, or it treats the app's refresh differently
+// from ours. Handing the refresh to the app separates the two: it refreshes
+// through its own HttpClient, interceptors and handlers, exactly as it would
+// on its own. We trigger it through the app's idle service: when the stored
+// session expiry is under 150 s, a visibilitychange makes it request new
+// tokens (see checkSessionExpirationAndCountdownTimer in the app). If the
+// app has not refreshed within a few seconds, we fall back to our own call.
+const APP_REFRESH_WAIT_MS = 10_000;
+const APP_REFRESH_FAKE_REMAINING_MS = 100_000;
+
+// Experiment B (default OFF — it did not help in the Debrecen log): a tiny
+// read-only request every few minutes, for a server that only slides its
+// session on ordinary requests.
 const ACTIVITY_INTERVAL_MS = 4 * 60_000;
 
 // A tick this late means the tab was throttled (Chromium: ~60 s wake-ups in
@@ -39,6 +51,8 @@ const ACTIVITY_INTERVAL_MS = 4 * 60_000;
 const LATE_TICK_MS = 45_000;
 const SLEPT_TICK_MS = 150_000;
 
+const SESSION_EXP_KEY = "session_expiration_date";
+
 export let lastRefresh: Date | null = null;
 // Whether the keep-alive is actually running, so the badge reports what is
 // true rather than assuming the module is on: it can be switched off in the
@@ -46,11 +60,16 @@ export let lastRefresh: Date | null = null;
 export let running = false;
 
 export function isActivityPingEnabled(): boolean {
-  return storage.get<boolean>("keepAlive", "activityPing") !== false;
+  return storage.get<boolean>("keepAlive", "activityPing") === true;
 }
-
 export function setActivityPingEnabled(enabled: boolean): void {
   storage.set("keepAlive", "activityPing", enabled);
+}
+export function isAppRefreshEnabled(): boolean {
+  return storage.get<boolean>("keepAlive", "appRefresh") !== false;
+}
+export function setAppRefreshEnabled(enabled: boolean): void {
+  storage.set("keepAlive", "appRefresh", enabled);
 }
 
 // The app keeps its session countdown in memory (NGXS store) and logs the
@@ -67,6 +86,49 @@ function nudgeAppCountdown(): void {
 
 let lastTickAt = 0;
 let lastVisibility = "";
+// Counts the app's own GetNewTokens calls, so a refresh we asked the app for
+// can be recognised when it happens.
+let appRefreshes = 0;
+
+// Fires a visibilitychange the app's handler will act on even in a hidden tab
+// (it checks document.visibilityState, which is shadowed for the duration of
+// the dispatch and restored right after).
+function dispatchVisibleChange(): void {
+  const hidden = document.visibilityState !== "visible";
+  try {
+    if (hidden) {
+      Object.defineProperty(document, "visibilityState", { get: () => "visible", configurable: true });
+    }
+    document.dispatchEvent(new Event("visibilitychange"));
+  } finally {
+    if (hidden) {
+      delete (document as unknown as { visibilityState?: string }).visibilityState;
+    }
+  }
+}
+
+async function refreshViaApp(): Promise<boolean> {
+  const before = appRefreshes;
+  const stored = sessionStorage.getItem(SESSION_EXP_KEY);
+  // The app's idle check reads this value synchronously inside the event
+  // handler; it is put back immediately afterwards.
+  sessionStorage.setItem(SESSION_EXP_KEY, new Date(Date.now() + APP_REFRESH_FAKE_REMAINING_MS).toISOString());
+  try {
+    dispatchVisibleChange();
+  } finally {
+    if (stored) {
+      sessionStorage.setItem(SESSION_EXP_KEY, stored);
+    }
+  }
+  const deadline = Date.now() + APP_REFRESH_WAIT_MS;
+  while (Date.now() < deadline) {
+    await new Promise(resolve => window.setTimeout(resolve, 250));
+    if (appRefreshes > before) {
+      return true;
+    }
+  }
+  return false;
+}
 
 async function tick(): Promise<void> {
   const now = Date.now();
@@ -90,6 +152,17 @@ async function tick(): Promise<void> {
   }
   const expiration = getTokenExpiration(token);
   if (!expiration || expiration.getTime() - now < REFRESH_MARGIN_MS) {
+    if (isAppRefreshEnabled()) {
+      diag(`frissítés kérése az app saját mechanizmusán át (a token ${expiration ? hhmmss(expiration.getTime()) + "-kor jár le" : "?"})`);
+      if (await refreshViaApp()) {
+        nudgeAppCountdown();
+        return; // the outcome was logged from the app's own call
+      }
+      diag(`az app ${APP_REFRESH_WAIT_MS / 1000} mp alatt nem frissített — saját frissítés következik`);
+      if (isSessionLost() || !getAccessToken()) {
+        return;
+      }
+    }
     const timeout = await refreshTokens();
     if (timeout !== null) {
       lastRefresh = new Date();
@@ -128,21 +201,39 @@ export const keepAlive: NpuModule = {
     const issued = token ? getTokenIssuedAt(token) : null;
     const expires = token ? getTokenExpiration(token) : null;
     const sessionExp = getSessionExpiration();
+    setLoginTime(issued ? issued.getTime() : null);
     diag(
       `kidobásvédelem indul — token kiadva ${issued ? hhmmss(issued.getTime()) : "?"}, lejár ${expires ? hhmmss(expires.getTime()) : "?"}; ` +
         `a munkamenet (sessionStorage szerint) ${sessionExp ? hhmmss(sessionExp.getTime()) + "-kor" : "?"} jár le; ` +
-        `tevékenység-jelzés: ${isActivityPingEnabled() ? "BE" : "KI"}`
+        `frissítés az appon át: ${isAppRefreshEnabled() ? "BE" : "KI"}, tevékenység-jelzés: ${isActivityPingEnabled() ? "BE" : "KI"}`
     );
 
-    // When the app refreshes tokens itself, the cookie has already rotated —
+    // Every call the app makes on its own is logged (path only, no
+    // parameters), so the log shows when Neptun itself last spoke to the
+    // server. When the app refreshes tokens, the cookie has already rotated —
     // taking our own turn right after would spend a stale cookie.
     const unsubscribe = onApiCall(call => {
+      noteAppCall(call.path, call.status);
       if (call.path === "Account/GetNewTokens") {
+        appRefreshes++;
         noteExternalRefresh();
-        diag(`az app maga frissített: HTTP ${call.status}`);
-        if (call.status >= 200 && call.status < 300) {
+        const ok = call.status >= 200 && call.status < 300;
+        if (ok) {
           lastRefresh = new Date();
+          const exp = getAccessToken() ? getTokenExpiration(getAccessToken()!) : null;
+          diag(`az app frissített: HTTP ${call.status} — új token ${exp ? hhmmss(exp.getTime()) + "-kor jár le" : "?"}`);
+          document.dispatchEvent(new CustomEvent("npu:session-refreshed"));
+        } else {
+          let body = "";
+          try {
+            body = sanitize(JSON.stringify(call.json<unknown>() ?? ""));
+          } catch {
+            // no readable body
+          }
+          diag(`az app frissítése ELUTASÍTVA: HTTP ${call.status}${body ? ` — a szerver üzenete: ${body}` : ""}`);
         }
+      } else {
+        diag(`app → ${call.path} ${call.status}`);
       }
     });
 
@@ -154,6 +245,7 @@ export const keepAlive: NpuModule = {
     return () => {
       running = false;
       diag("kidobásvédelem leáll (kijelentkezés vagy kikapcsolás)");
+      setLoginTime(null);
       unsubscribe();
       window.clearTimeout(startup);
       window.clearInterval(timer);
