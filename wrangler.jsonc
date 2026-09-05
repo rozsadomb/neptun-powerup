@@ -25,11 +25,9 @@
     "FEEDBACK_TTL_DAYS": 90
   },
   // A bejelentések privát tárolója (KV): a teljes szöveg + a megadott email cím.
-  // Egyszeri beállítás, lásd DEPLOY.md 2b:
-  //   npx wrangler kv namespace create FEEDBACK
-  // A kapott id-t ide kell írni, és a sort bekapcsolni. Amíg nincs bekötve, az
-  // űrlap működik, csak az email címet nem tudja elmenteni (és ezt meg is mondja).
-  // "kv_namespaces": [{ "binding": "FEEDBACK", "id": "IDE_A_NAMESPACE_ID" }],
+  // A névtér id-je nem titok. Helyi fejlesztésnél (wrangler dev) a KV a gépeden
+  // él, nem az élesben; az élesbe csak a deploy köt. Lásd DEPLOY.md 2b.
+  "kv_namespaces": [{ "binding": "FEEDBACK", "id": "0e60eccec3b84b13825d4ed9dcb402c8" }],
   "observability": {
     "enabled": true
   }
