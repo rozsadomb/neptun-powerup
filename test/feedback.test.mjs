@@ -123,6 +123,33 @@ res = await post("/api/feedback", { ...base, body: longBody, contact: "" });
 check("200-as válasz", res.status, 200);
 check("20 000+ karakter átment", githubCalls[githubCalls.length - 1].body.body.startsWith(longBody.trim()), true);
 
+console.log("\nEgyetem-mező");
+githubCalls.length = 0;
+{
+  const res = await post("/api/feedback", { ...base, university: "  Debreceni   Egyetem \n", contact: EMAIL });
+  const data = await res.json();
+  const issue = githubCalls[githubCalls.length - 1].body;
+  check("az egyetem a nyilvános issue elejére kerül", issue.body.startsWith("**Egyetem:** Debreceni Egyetem\n\n"), true);
+  check("a szöveg utána következik", issue.body.includes(BODY), true);
+  check("az email TOVÁBBRA SEM kerül az issue-ba", issue.body.includes(EMAIL), false);
+  const num = Number(data.url.split("/").pop());
+  const detail = await (await req("/api/admin/reports/" + num, { headers: auth })).json();
+  check("a privát rekordban is ott az egyetem", detail.university, "Debreceni Egyetem");
+}
+{
+  githubCalls.length = 0;
+  await post("/api/feedback", { ...base, university: "" });
+  const issue = githubCalls[githubCalls.length - 1].body;
+  check("egyetem nélkül nincs fejléc", issue.body.startsWith("**Egyetem:**"), false);
+}
+{
+  githubCalls.length = 0;
+  await post("/api/feedback", { ...base, university: "X".repeat(200) });
+  const issue = githubCalls[githubCalls.length - 1].body;
+  const line = issue.body.split("\n")[0];
+  check("a hosszú egyetemnév 80 karakterre vágva", line.length, "**Egyetem:** ".length + 80);
+}
+
 const failed = results.filter((r) => !r).length;
 console.log(failed === 0 ? `MIND A(Z) ${results.length} RENDBEN` : `${failed} BUKOTT`);
 process.exit(failed ? 1 : 0);

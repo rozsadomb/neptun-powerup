@@ -141,6 +141,7 @@
         type: form.querySelector('input[name="type"]:checked').value,
         title: form.querySelector('[name="title"]').value.trim(),
         body: form.querySelector('[name="body"]').value.trim(),
+        university: form.querySelector('[name="university"]').value.trim(),
         contact: form.querySelector('[name="contact"]').value.trim(),
         website: form.querySelector('[name="website"]').value, // honeypot
       };
@@ -156,12 +157,12 @@
         .then(function (result) {
           if (result.ok && result.data.url) {
             form.reset();
-            var message = "Köszönjük, a bejelentésedet rögzítettük. " +
+            var message = "Köszönöm, a bejelentésedet rögzítettem. " +
               '<a href="' + result.data.url + '" target="_blank" rel="noopener">Itt tudod követni</a>.';
             // Az email cím a privát tárolóba megy, nem a nyilvános issue-ba. Ha ez
             // épp nem elérhető, a bejelentő tudja meg, hogy nem várhat választ.
             if (result.data.contactSaved === false) {
-              message += " Az email címedet viszont most nem tudtuk elmenteni, ezért erre a bejelentésre nem tudunk emailben válaszolni.";
+              message += " Az email címedet viszont most nem tudtam elmenteni, ezért erre a bejelentésre nem tudok emailben válaszolni.";
             }
             show("ok", message);
           } else {

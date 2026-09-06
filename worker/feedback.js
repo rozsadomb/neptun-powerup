@@ -22,6 +22,7 @@ const MAX_TITLE = 120;
 // ezért a szöveg korlátja bőven a GitHub 65 536-os határa alatt, de tágasan van.
 const MAX_BODY = 30000;
 const MAX_CONTACT = 120;
+const MAX_UNIVERSITY = 80;
 
 export async function handleFeedback(request, env) {
   if (!env.GITHUB_TOKEN || !env.GITHUB_REPO) {
@@ -45,6 +46,9 @@ export async function handleFeedback(request, env) {
   const title = String(payload.title ?? "").trim().slice(0, MAX_TITLE);
   const body = String(payload.body ?? "").trim().slice(0, MAX_BODY);
   const contact = String(payload.contact ?? "").trim().slice(0, MAX_CONTACT);
+  // Az egyetem nyilvános: enélkül egy naplóhoz nem lehet tudni, melyik Neptun
+  // viselkedéséről szól. Egy sorba fér, ezért új sorokat nem engedünk bele.
+  const university = String(payload.university ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_UNIVERSITY);
 
   if (title.length < 5 || body.length < 10) {
     return json(400, { error: "Kérlek, adj meg egy rövid címet és néhány mondat leírást." });
@@ -53,6 +57,7 @@ export async function handleFeedback(request, env) {
   const label = type === "bug" ? "bug" : "enhancement";
   const prefix = type === "bug" ? "🐞" : "💡";
   const issueBody =
+    (university ? `**Egyetem:** ${university}\n\n` : "") +
     body +
     "\n\n---\n" +
     "*A weboldal visszajelzés-űrlapjáról érkezett.*" +
@@ -86,7 +91,7 @@ export async function handleFeedback(request, env) {
   // csak azt mondja meg az űrlapnak, hogy a megadott email cím el lett-e mentve.
   let contactSaved = contact ? false : null;
   try {
-    const saved = await saveReport(env, { issueNumber: issue.number, issueUrl: issue.html_url, type, title, body, contact });
+    const saved = await saveReport(env, { issueNumber: issue.number, issueUrl: issue.html_url, type, title, body, contact, university });
     if (saved && contact) contactSaved = true;
   } catch (err) {
     console.error("Feedback store error", err && err.message);

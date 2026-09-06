@@ -619,3 +619,19 @@ form.feedback .hint { margin-top: 8px; }
   .btn, .btn__ic, .npu-button, .nav__toggle span, .menu a, .faq summary .plus, .privacy summary .plus { transition: none; }
   .notif { transition: opacity 160ms ease; transform: none; }
 }
+
+/* ---- Napló-kérés szakasz ---- */
+.help { background: var(--bg-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.help .sec-head { max-width: 46rem; }
+.help__cases { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 40px; }
+.help__case { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-card); padding: 26px; }
+.help__case .ic { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink); }
+.help__case h3 { font-size: 1.1rem; margin: 16px 0 8px; }
+.help__case p { color: var(--muted); text-wrap: pretty; }
+.help__note { margin-top: 24px; max-width: 46rem; color: var(--muted); text-wrap: pretty; }
+.help__note b { color: var(--text); }
+.help__how { max-width: 46rem; }
+.help__how h3 { font-size: 1.05rem; }
+.help__how ol { margin: 14px 0 20px; padding-left: 1.2rem; color: var(--muted); }
+.help__how li { margin: 8px 0; }
+@media (max-width: 760px) { .help__cases { grid-template-columns: 1fr; } }

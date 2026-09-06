@@ -224,6 +224,9 @@ const ADMIN_HTML = `<!doctype html>
           if (r.status !== 200) { show("err", r.data.error || "Nem sikerült betölteni."); return; }
           textRow = el("tr", { class: "text" });
           var td = el("td", { colspan: "5", "data-l": "" });
+          if (r.data.university) {
+            td.appendChild(el("p", { style: "margin:0 0 8px;font-weight:600" }, "Egyetem: " + r.data.university));
+          }
           td.appendChild(el("pre", null, r.data.body || ""));
           textRow.appendChild(td);
           tr.after(textRow);

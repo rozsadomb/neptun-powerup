@@ -23,7 +23,7 @@ function bytes(value) {
   return new TextEncoder().encode(JSON.stringify(value)).length;
 }
 
-export async function saveReport(env, { issueNumber, issueUrl, type, title, body, contact }) {
+export async function saveReport(env, { issueNumber, issueUrl, type, title, body, contact, university }) {
   if (!env.FEEDBACK) return false;
   const ttlSeconds = feedbackTtlDays(env) * 86400;
   const now = Date.now();
@@ -34,6 +34,7 @@ export async function saveReport(env, { issueNumber, issueUrl, type, title, body
     title: String(title ?? ""),
     body: String(body ?? ""),
     contact: String(contact ?? ""),
+    university: String(university ?? ""),
     createdAt: new Date(now).toISOString(),
     expiresAt: new Date(now + ttlSeconds * 1000).toISOString(),
   };

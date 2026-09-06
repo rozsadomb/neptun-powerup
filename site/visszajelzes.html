@@ -61,14 +61,14 @@
     <div class="fb__intro">
       <h1 id="fb-h" style="font-size:clamp(2.2rem,1.2rem+3vw,3.25rem)">Visszajelzés</h1>
       <p class="lead">Találtál egy hibát? Van egy ötleted? Írd meg, nem kell hozzá semmilyen fiók.</p>
-      <p class="hint">A bejelentésed szövege nyilvánosan megjelenik a projekt <a href="https://github.com/rozsadomb/neptun-powerup/issues" target="_blank" rel="noopener">GitHub-oldalán</a>, így azt is látod majd, mi történik vele. Az email címed nem kerül ki: azt csak a projekt karbantartója látja.</p>
+      <p class="hint">A bejelentésed szövege nyilvánosan megjelenik a projekt <a href="https://github.com/rozsadomb/neptun-powerup/issues" target="_blank" rel="noopener">GitHub-oldalán</a>, így azt is látod majd, mi történik vele. Az email címed nem kerül ki: azt csak én látom.</p>
       <p class="hint">Van GitHub-fiókod? Akkor <a href="https://github.com/rozsadomb/neptun-powerup/issues/new" target="_blank" rel="noopener">közvetlenül is nyithatsz issue-t</a>.</p>
       <details class="privacy">
         <summary>Adatkezelési tájékoztató<span class="plus"><svg class="icon"><use href="#i-plus"/></svg></span></summary>
         <div>
-          <p><strong>Mit kezelünk?</strong> A bejelentés címét és szövegét, valamint az email címedet, ha megadod.</p>
-          <p><strong>Miért?</strong> Hogy a hibát kijavíthassuk, az ötletet átgondolhassuk, és ha kérted, válaszolhassunk neked.</p>
-          <p><strong>Ki látja?</strong> A bejelentés szövege nyilvános GitHub-issue-ként jelenik meg. Az email címed csak a projekt karbantartója látja, másnak nem adjuk tovább.</p>
+          <p><strong>Mit kezelek?</strong> A bejelentés címét, szövegét és az egyetemed nevét, valamint az email címedet, ha megadod.</p>
+          <p><strong>Miért?</strong> Hogy a hibát kijavíthassam, az ötletet átgondolhassam, és ha kérted, válaszolhassak neked.</p>
+          <p><strong>Ki látja?</strong> A bejelentés szövege nyilvános GitHub-issue-ként jelenik meg. Az email címed csak én látom, másnak nem adom tovább.</p>
           <p><strong>Meddig?</strong> A bejelentés privát másolata az email címmel együtt <span data-ttl-days>90</span> nap után magától törlődik, kérésre hamarabb. A nyilvános szöveg a GitHubon marad, amíg a projekt létezik.</p>
           <p><strong>Hol?</strong> A nyilvános szöveget a GitHub, a privát másolatot a Cloudflare tárolja a projekt megbízásából.</p>
           <p><strong>Mit kérhetsz?</strong> Bármikor kérheted az email címed törlését vagy a bejelentésed módosítását: küldj egy új bejelentést ezen az űrlapon a bejelentés számával, az email címedet nem kell újra leírnod.</p>
@@ -88,6 +88,24 @@
       </div>
 
       <div>
+        <label for="fbUniversity">Melyik egyetem?</label>
+        <input type="text" id="fbUniversity" name="university" maxlength="80" list="uniList"
+               placeholder="Például: Debreceni Egyetem">
+        <datalist id="uniList">
+          <option value="BME"></option><option value="Debreceni Egyetem"></option><option value="Szegedi Tudományegyetem"></option>
+          <option value="Miskolci Egyetem"></option><option value="Óbudai Egyetem"></option><option value="Pannon Egyetem"></option>
+          <option value="Semmelweis Egyetem"></option><option value="MATE"></option><option value="NKE"></option>
+          <option value="PPKE"></option><option value="Károli Gáspár Református Egyetem"></option><option value="Széchenyi István Egyetem"></option>
+          <option value="Eszterházy Károly Katolikus Egyetem"></option><option value="Zeneakadémia"></option><option value="Testnevelési Egyetem"></option>
+          <option value="Metropolitan Egyetem"></option><option value="MOME"></option><option value="Nyíregyházi Egyetem"></option>
+          <option value="Kodolányi János Egyetem"></option><option value="Edutus Egyetem"></option><option value="Gábor Dénes Egyetem"></option>
+          <option value="Baptista Teológiai Akadémia"></option><option value="ELTE"></option><option value="PTE"></option>
+          <option value="Corvinus"></option><option value="Dunaújvárosi Egyetem"></option><option value="Neumann János Egyetem"></option>
+        </datalist>
+        <p class="hint">A Neptun intézményenként máshogy viselkedik, ezért ez a legfontosabb adat egy hibajelentésben. Ha nincs a listában, csak írd be.</p>
+      </div>
+
+      <div>
         <label for="fbTitle">Rövid összefoglaló</label>
         <input type="text" id="fbTitle" name="title" maxlength="120" required
                placeholder="Például: a helyfigyelő nem jelez a XY kurzusnál">
@@ -96,15 +114,15 @@
       <div>
         <label for="fbBody">Részletek</label>
         <textarea id="fbBody" name="body" maxlength="30000" required
-                  placeholder="Hiba esetén: mit csináltál, mit vártál, és mi történt helyette? Melyik egyetem, melyik böngésző?"></textarea>
-        <p class="hint">Kérlek, ne írj bele jelszót vagy más érzékeny adatot, a bejelentés nyilvános. Ha a szkript diagnosztikai naplóját küldöd (Beállítások, „Napló másolása”), egyszerűen illeszd be ide.</p>
+                  placeholder="Hiba esetén: mit csináltál, mit vártál, és mi történt helyette? Melyik böngésző? Ide illesztheted a naplót is."></textarea>
+        <p class="hint">Ha a szkript diagnosztikai naplóját küldöd (fogaskerék, „Napló másolása”), egyszerűen illeszd be ide: elfér. Jelszót vagy más érzékeny adatot ne írj bele, a bejelentés nyilvános.</p>
       </div>
 
       <div>
         <label for="fbContact">Email (nem kötelező)</label>
         <input type="email" id="fbContact" name="contact" maxlength="120" autocomplete="email"
-               placeholder="Ha szeretnéd, hogy visszajelezzünk">
-        <p class="hint">Nem jelenik meg a nyilvános bejelentésben. Csak a karbantartó látja, és <span data-ttl-days>90</span> nap után magától törlődik.</p>
+               placeholder="Ha szeretnéd, hogy visszajelezzek">
+        <p class="hint">Nem jelenik meg a nyilvános bejelentésben. Csak én látom, és <span data-ttl-days>90</span> nap után magától törlődik.</p>
       </div>
 
       <div class="hp" aria-hidden="true">
