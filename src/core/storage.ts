@@ -41,6 +41,11 @@ interface Mutation {
 // silently discards whatever the other tab saved in the meantime — dragging a
 // panel in one tab would drop a watch or saved credentials added in the other.
 let writeChain: Promise<void> = Promise.resolve();
+// Mutations applied to `data` whose write has not completed yet. When a write
+// finishes it replaces `data` with what it read back from storage — which does
+// not contain the later mutations, so those are re-applied. Without this, a
+// read landing between two queued writes briefly sees the older state.
+const pendingMutations: Mutation[] = [];
 
 function applyMutation(target: Record<string, unknown>, { keys, value }: Mutation): void {
   let current = target;
@@ -64,9 +69,13 @@ function applyMutation(target: Record<string, unknown>, { keys, value }: Mutatio
 // full overwrite — but it still goes through the chain so it cannot overtake a
 // write that is already in flight.
 function persist(mutation: Mutation | null): void {
+  if (mutation !== null) {
+    pendingMutations.push(mutation);
+  }
   writeChain = writeChain
     .then(async () => {
       if (mutation === null) {
+        pendingMutations.length = 0;
         data = {};
         await rawSave("{}");
         return;
@@ -78,11 +87,22 @@ function persist(mutation: Mutation | null): void {
         fresh = {};
       }
       applyMutation(fresh, mutation);
-      data = fresh;
       await rawSave(JSON.stringify(fresh));
+      const index = pendingMutations.indexOf(mutation);
+      if (index >= 0) {
+        pendingMutations.splice(index, 1);
+      }
+      // Everything still queued was already applied to `data`; re-apply it so
+      // the fresh copy does not roll those writes back.
+      pendingMutations.forEach(later => applyMutation(fresh, later));
+      data = fresh;
     })
     .catch(() => {
       // One failed write must not wedge every later one.
+      const index = pendingMutations.indexOf(mutation as Mutation);
+      if (index >= 0) {
+        pendingMutations.splice(index, 1);
+      }
     });
 }
 

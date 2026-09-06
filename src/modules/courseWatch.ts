@@ -1,4 +1,5 @@
 import { api, ApiError, apiPost, isLoggedIn } from "../core/api";
+import { diag } from "../core/diag";
 import { log } from "../core/env";
 import type { NpuModule } from "../core/modules";
 import * as storage from "../core/storage";
@@ -27,6 +28,8 @@ export interface WatchedCourse {
   addedAt: string;
   /** Set once we have notified, so the alert fires once per opening. */
   notifiedAt?: string;
+  /** Consecutive failed checks; the watch retires itself when they pile up. */
+  failures?: number;
 }
 
 // GetSubjectsCourses and GetScheduledCourses describe the same course with
@@ -52,6 +55,15 @@ function alreadySignedUp(state: CourseState): boolean {
 }
 
 const POLL_INTERVAL_MS = 30_000;
+// A watch whose course the server no longer serves is dead: 404/410 mean the
+// course (or the whole registration period) is gone, and no amount of asking
+// will bring it back. A Debrecen log showed two such watches polling every 30
+// seconds for an hour — 240 guaranteed failures, and the user believing the
+// courses were still being watched.
+const PERMANENT_STATUSES = [404, 410];
+// Anything else (5xx, network) may be temporary, so it is retried — but not
+// forever: after this many consecutive failures the watch stops on its own.
+const MAX_CONSECUTIVE_FAILURES = 20;
 
 export function watchKey(subjectId: string, courseId: string): string {
   return `${subjectId}:${courseId}`;
@@ -254,7 +266,25 @@ async function checkWatch(watch: WatchedCourse): Promise<void> {
   }
 }
 
-async function tick(): Promise<void> {
+/** Stops a watch that cannot succeed any more, and tells the user why. */
+function retireWatch(watch: WatchedCourse, reason: string): void {
+  removeWatch(watch.subjectId, watch.courseId);
+  diag(`figyelés leállítva: ${watch.courseCode} — ${reason}`);
+  log(`watch retired: ${watch.courseCode} — ${reason}`);
+  const title = "A figyelés leállt";
+  const body = `${watch.subjectTitle} · ${watch.courseCode}: ${reason}`;
+  try {
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      new Notification(title, { body, tag: `${watch.key}:retired` });
+    }
+  } catch {
+    // the in-page event below is the fallback
+  }
+  document.dispatchEvent(new CustomEvent("npu:watch-retired", { detail: { watch, reason } }));
+}
+
+/** Runs one round of checks. Exported so it can be exercised directly. */
+export async function checkAllWatches(): Promise<void> {
   // Never act on someone else's watches: resolve who is logged in first.
   if (!(await ensureUser())) {
     return;
@@ -267,8 +297,22 @@ async function tick(): Promise<void> {
   for (const watch of watches) {
     try {
       await checkWatch(watch);
+      if (watch.failures) {
+        writeWatch(watch.key, { ...watch, failures: undefined });
+      }
     } catch (error) {
-      log(`watch check failed for ${watch.courseCode}`, error);
+      const status = error instanceof ApiError ? error.status : 0;
+      if (PERMANENT_STATUSES.includes(status)) {
+        retireWatch(watch, `a Neptun szerint ez a kurzus már nem elérhető (HTTP ${status})`);
+        continue;
+      }
+      const failures = (watch.failures ?? 0) + 1;
+      if (failures >= MAX_CONSECUTIVE_FAILURES) {
+        retireWatch(watch, `${failures} egymást követő sikertelen ellenőrzés`);
+        continue;
+      }
+      writeWatch(watch.key, { ...watch, failures });
+      log(`watch check failed for ${watch.courseCode} (${failures}.)`, error);
     }
   }
 }
@@ -280,7 +324,7 @@ export const courseWatch: NpuModule = {
     let stopped = false;
     const timer = window.setInterval(() => {
       if (!stopped) {
-        void tick();
+        void checkAllWatches();
       }
     }, POLL_INTERVAL_MS);
     void ensureUser().then(user => {
@@ -288,7 +332,7 @@ export const courseWatch: NpuModule = {
         adoptLegacyWatches(user);
       }
       if (!stopped) {
-        void tick();
+        void checkAllWatches();
       }
     });
     return () => {

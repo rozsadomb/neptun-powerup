@@ -19,6 +19,16 @@ const stored = JSON.parse(backing.get("npu-ng:data") ?? "{}");
 check("a 2. fül írása megmaradt", !!stored.panels?.p, true);
 check("az 1. fül figyelése IS megmaradt", stored.watches?.["t:k"]?.courseCode, "T1");
 check("a 2. fül látja az 1. fül adatát", !!tab2.get("watches", "t:k"), true);
+console.log("A2) egymás utáni írások: a memóriabeli másolat sosem esik vissza");
+tab1.set("watches", "a", { v: 1 });
+tab1.set("watches", "b", { v: 2 });
+tab1.set("watches", "c", { v: 3 });
+check("mindhárom azonnal olvasható", ["a","b","c"].every(k => tab1.get("watches", k)), true);
+for (let i = 0; i < 6; i++) { await sleep(10); if (Object.keys(tab1.get("watches") ?? {}).length < 4) break; }
+check("a mentések alatt sem tűnik el egyik sem", Object.keys(tab1.get("watches") ?? {}).length, 4);
+await sleep(80);
+check("a kiírás után is mind megvan", Object.keys(JSON.parse(backing.get("npu-ng:data")).watches).length, 4);
+
 console.log("B) a zár lease (7 mp-es kérés, 5 mp-es zár)");
 const b64 = o => Buffer.from(JSON.stringify(o)).toString("base64url");
 const jwt = n => `${b64({ alg: "HS256" })}.${b64({ sub: n, exp: Math.floor(Date.now() / 1000) + 300 })}.s`;

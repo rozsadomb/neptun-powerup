@@ -699,7 +699,15 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     response = await gatedFetch(path, call);
   }
   if (!response.ok) {
-    throw new Error(`API call ${path} failed with status ${response.status}`);
+    // ApiError, not a bare Error: callers need the status to tell a temporary
+    // failure from a permanent one (404/410 = this thing is gone for good).
+    let text = "";
+    try {
+      text = await response.text();
+    } catch {
+      // the message is a bonus
+    }
+    throw new ApiError(text ? parseErrorBody(text) : `${path} — HTTP ${response.status}`, response.status);
   }
   const result = (await response.json()) as ApiResponse<T>;
   return result.data;

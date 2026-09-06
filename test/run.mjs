@@ -18,6 +18,18 @@ for (const name of ["api", "storage", "base"]) {
   });
 }
 
+for (const entry of ["core", "watch"]) {
+  await build({
+    entryPoints: [`test/${entry}-entry.ts`],
+    bundle: true,
+    format: "esm",
+    platform: "node",
+    define: { __NPU_VERSION__: '"test"' },
+    outfile: `${out}/${entry}.mjs`,
+    logLevel: "error",
+  });
+}
+
 await build({
   entryPoints: ["test/core-entry.ts"],
   bundle: true,
@@ -33,6 +45,7 @@ const suites = [
   ["test/storage-lock.test.mjs", [`${out}/storage.mjs`, `${out}/api.mjs`]],
   ["test/universities.test.mjs", ["dist/npu.user.js", `${out}/base.mjs`]],
   ["test/gate.test.mjs", [`${out}/core.mjs`]],
+  ["test/watch.test.mjs", [`${out}/watch.mjs`]],
   ["test/feedback.test.mjs", []],
 ];
 let failed = 0;
