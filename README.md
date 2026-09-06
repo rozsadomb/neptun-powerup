@@ -1,95 +1,79 @@
 # Neptun PowerUp! NG
 
-**Weboldal és telepítés: https://neptun-powerup.com** · [Hibabejelentés](https://neptun-powerup.com/visszajelzes)
+**A Neptun, ahogy lennie kellene.** Ingyenes, nyílt forráskódú böngésző-kiegészítő az új Neptun felülethez: nem léptet ki, egy kattintással felveszed a betervezett tárgyaidat, és szól, ha felszabadul egy hely a betelt kurzuson.
 
-A [Neptun PowerUp!](https://github.com/solymosi/npu) szellemi utódja az **új Neptun webes felületre** (Angular SPA).
+**➡️ Telepítés és útmutató: [neptun-powerup.com](https://neptun-powerup.com)**
 
-**22 magyar intézmény** Neptunján ellenőrizve, hogy a szkript elindul és helyesen ismeri fel az
-alkalmazást; a funkciók teljes körű tesztelése eddig a BME-n történt.
+![Az NPU állapotjelzője a Neptun jobb alsó sarkában](docs/badge.png)
 
-Ez azért nem triviális, mert **az app mindenhol más útvonalon ül** — élő méréssel (2026-08-30):
-
-| app gyökere | intézmények |
-|---|---|
-| `/hallgato` | SZTE, Semmelweis, Pannon, Eszterházy, KRE, LFZE, TF, Edutus, GDF, Metropolitan, Nyíregyháza |
-| `/hallgato_ng` | Debrecen, Miskolc, Széchenyi, MATE, NKE |
-| `/hallgatoi` | **BME (egyedül)** |
-| `/hallgato2_uj` | PPKE |
-| `/Hallgato_NG` | Kodolányi |
-| `/ujhallgato` | Óbudai |
-| `/momehw`, `/bhfhw` | MOME, BHF (SDA-hosztolt — az útvonalban nincs is „hallgato”) |
-
-A gép sem mindig a `neptun.*` portál: pl. `hallgato.uni-mate.hu`, `host.sdakft.hu`,
-`www-h-ng.neptun.unideb.hu`. Ezért a szkript **semmilyen útvonalat nem feltételez**: az alkalmazás
-gyökerét a dokumentum saját `<base href>`-éből olvassa ki, és minden route-illesztés és API-hívás
-ehhez képest relatív (`/login`, `/subjects/registration`) — ez a forma minden intézményben azonos.
-A felismerés is mérésen alapul: mind a 22 helyen `<app-root>` és `Neptun Web` cím van a kiszolgált
-HTML-ben, `<neptun-*>` elem viszont **egyikben sincs** indulásker, csak az Angular bootstrap után.
-
-A régi NPU a régi ASP.NET WebForms felületre épült és azzal együtt nyugdíjba vonult. Ez a projekt nulláról írja újra a funkcionalitást, de a régi DOM-manipuláció helyett elsősorban a Neptun **REST API-jára** építve (a felderített API-t lásd: [RECON.md](RECON.md)).
-
-## Funkciók
-
-- **Kidobásvédelem** – a szkript a lejárat előtt automatikusan új access tokent kér (`Account/GetNewTokens`), frissíti a sessionStorage-ban tárolt lejáratokat, és szintetikus eseményekkel a Neptun saját (memóriában ketyegő) visszaszámlálóját is szinkronban tartja, így a munkamenet soha nem jár le.
-  A Neptun **rotálja a refresh cookie-t**, ezért két egyszerre futó frissítés közül a vesztes 401-et kap, és a szerver kilépteti a felhasználót. A szkript emiatt egyszerre csak egy frissítést enged (fülön belül és fülök között is), és félreáll, amikor az alkalmazás maga frissít. A fülök közti zár **lease**: amíg a kérés repül, a szkript megújítja, mert egy 5 másodpercnél lassabb válasz alatt a másik fül különben elavultnak látná, és ugyanazt a még nem rotált sütit küldené el.
-  **v0.12.3 — kérés-kapu.** A második debreceni napló (v0.12.2, az app saját mechanizmusával frissítve) négy munkamenetet mutat, amelyek **véletlenszerű** pontokon haltak meg — 6–9, 3–6, 3–6 és 21–24 perccel a belépés után —, tehát nincs fix korlát. A bukó frissítés mindig közvetlenül egy olyan sikeres frissítés után jött, amely **egybeesett egy háttérbeli helyfigyelő-lekérdezéssel** (a két időzítő fázisa egybeesik), és a 401 üres törzsű volt (hitelesítési rétegbeli elutasítás, nem alkalmazás-szintű „lejárt”). Az app maga sosem futtat kérést frissítés közben — az interceptora sorba állítja őket —, a szkript fetch-kérései viszont megkerülték ezt a sort. Ha a szerver a rendes válaszokon is újra kiadja a sütit, két egyidejű válasz versenyez, a böngésző a régit tarthatja meg, és a következő frissítés 401-et kap. Ezért a `core/gate.ts`: **a szkript egyetlen kérése sem fut frissítés közben (sem a sajátunk, sem az appé), és frissítés nem indul, amíg a szkript kérése repül.** Minden várakozás korlátos, tehát egy beragadt kérés lassíthat, de nem fagyaszt. A napló mostantól a szkript saját kéréseit is rögzíti (útvonal + státusz).
-  **v0.12.2 — a debreceni napló után.** Egy valódi naplóban (Debrecen, Chrome, végig látható fül) a munkamenet 12–13 perccel a belépés után halt meg, miközben a szkript minden frissítése ÉS minden csak olvasó kérése sikerült — tehát sem a háttér-fojtás/alvás, sem a „csak valódi kérés csúsztat” magyarázat nem áll. Két lehetőség maradt: a szerver abszolút korlátot húz, vagy *máshogy* kezeli az app saját frissítését, mint a miénket. Ezért az új alapértelmezett kísérlet: **a szkript nem maga frissít, hanem megkéri rá a Neptunt** (a lejárati értéket 100 mp-re állítva egy `visibilitychange`-re az app saját idle-szolgáltatása kér új tokent, pontosan úgy, ahogy magától tenné; ha 10 mp-en belül nem teszi, a szkript maga frissít). Ha így is meghal a munkamenet, a szerver korlátja abszolút, és csak az újrabelépés segít. A napló emellé rögzíti az app saját kéréseinek útvonalát, a belépés és az oldalmegnyitás óta eltelt időt a 401 pillanatában, a szerver hibaüzenetét (kiszűrve) és a szerver óraeltérését.
-  **Diagnosztika és egy kísérlet (v0.12.1).** Egy bejelentés szerint egy 15 perces munkamenetű egyetemen (ÓE, Opera) a jelvény 15:00-ról indul újra minden frissítésnél, majd 11–12 percnél „a munkamenet lejárt”-ot ír. A szkript ezért naplózza a munkamenet eseményeit: minden frissítés indulását és eredményét (HTTP-státusz, a szerver által jelzett munkamenet-hossz), a 401 pillanatában azt is, mennyit mutatott a jelvény, a fül láthatóságát, és ha egy időzítő a vártnál sokkal később fut le (háttér-fojtás vagy alvó fül). A napló **csak a memóriában él és a konzolra íródik**; a beállítások panel „Napló másolása” gombja a vágólapra teszi — sehova nem küldjük el. Nem tartalmaz tokent, sütit, Neptun-kódot, nevet, kérés- vagy válasz-tartalmat; a `core/diag.ts`-ben nincs sem hálózati hívás, sem tárolóírás. Kísérletként 4 percenként egy apró, csak olvasó `UserInfo` kérés is megy („Tevékenység-jelzés”, kikapcsolható), arra az esetre, ha a szerver csak valódi kérésre csúsztatja a munkamenetet, a token-frissítésre nem.
-  Ha a munkamenet mégis elveszik (pl. a gép egy éjszakát alszik), a szkript ezt **ahhoz a belépéshez köti**, amelyikre vonatkozott: újrabelépés után — ami a Neptunban csak nézetváltás, nem oldalújratöltés — magától érvényét veszti, így a védelem az új munkamenetben is elindul.
-- **Automatikus tárgylistázás** – a Tárgyfelvétel oldalon nem kell a „Tárgy keresése” gombra kattintani, a lista magától betölt.
-- **Gyorsfelvétel** – a Tárgyfelvétel oldalon egy panel felsorolja az Órarendtervezőbe betervezett, még fel nem vett tárgyakat, kurzusonként a létszámmal és a „BETELT” jelzéssel. Egy kattintás (megerősítéssel) felveszi a tárgyat a betervezett kurzusaival együtt; telt kurzusnál bekapcsolható a 10 másodperces automatikus újrapróbálkozás. Ez a régi NPU „1 kattintásos tárgyfelvétel” funkciójának megfelelője, az új felület saját tervezőjére építve.
-  A panel **élőben követi a tervezőt**: amint egy tárgy bekerül vagy kikerül, azonnal frissül. A változást a Neptun saját hálózati hívásaiból veszi észre, és egy olcsó lekérdezéssel is ellenőrzi, hogy akkor is helyes maradjon, ha a lehallgatás nem működik (pl. más böngészőben). A frissítés megőrzi a futó újrapróbálkozásokat és a folyamatban lévő felvételt, és nem mozdítja el a kártyákat, amíg az egered a panel felett van.
-- **Helyfigyelő** – a betelt kurzusok mellett megjelenik egy „🔔 figyelem” gomb. A szkript ezután félpercenként ellenőrzi a kurzust, és amint felszabadul egy hely, **böngésző-értesítéssel és hangjelzéssel szól** – akkor is, ha épp a Neptun másik oldalán vagy. Kurzusonként bekapcsolható, hogy azonnal fel is vegye a tárgyat (ehhez külön megerősítés kell). A figyelt kurzusok a Gyorsfelvétel panel alján kezelhetők, a számuk pedig az állapotjelzőn is látszik.
-  Két korlát, amit érdemes tudni: az értesítéshez a böngésző engedélye kell (az első figyelésnél kéri), és a figyelés csak addig fut, amíg a Neptun megnyitva marad egy fülön.
-  A figyelés **magától leáll**, ha nem tud sikerülni: 404/410 válasznál (a kurzus vagy a tárgyfelvételi időszak megszűnt) azonnal, egyéb hibából 20 egymást követő sikertelen ellenőrzés után. Egy debreceni napló szerint enélkül két halott figyelés óránként 240 biztosan sikertelen kérést küldött a Neptunnak, a felhasználó pedig azt hitte, hogy még figyeli.
-  A figyelések **hallgatóhoz kötve** tárolódnak (Neptun-kód szerint, amit a `UserInfo` végpont ad — a tokenben nincs semmilyen azonosító). Enélkül közös gépen a kijelentkezés után belépő következő hallgató munkamenetében futottak volna tovább, és egy automatikus felvétel az ő nevében vett volna fel egy tárgyat, amit sosem választott. Amíg nem tudjuk, ki van bejelentkezve, a szkript nem tekint sajátjának egyetlen figyelést sem.
-- **Tárgyelőzmény színezés** – a Tárgyfelvétel listáján piros szegélyt és „⚠ felvetted, nincs meg” jelzést kap az a tárgy, amit **korábbi félévben már felvettél, de nem teljesítettél**, és most újra felvehető — hogy a pótlandó tárgy ne vesszen el a többi között. Ha többször is felvetted, azt is kiírja (`2× felvetted`). Az előzményt a `TakenSubjects` végpontból olvassa, félévenként egyszer, és az aktuális félévet kihagyja (a most futó tárgy nem korábbi bukás).
-  Zöld csak abban a ritka esetben jelenik meg, amikor egy már teljesített tárgy mégis szerepel a listában (jegyjavításra felvehető). A Neptun ugyanis a teljesített tárgyakat alapból kiszűri a listából — mérve: a lista minden sora `isCompleted: false` —, ezért „zöld = teljesített” önmagában sosem sülne el.
-- **Vizsga-áttekintés** – a Vizsgák oldalain panel a felvett vizsgákkal, félévválasztó gombsorral (a választott félévet megjegyzi). Színezés a régi NPU szellemében: zöld = teljesítve, piros = sikertelen, sárga = nem jelent meg / várólistán, kék = felvett vizsga.
-- **Auto-login** – a bejelentkezési oldalon tárolt Neptun-kód/jelszó párosok, 3 másodperces visszaszámlálással automatikus belépés (bármely kattintás/billentyű megszakítja). Kézi belépés után felajánlja az adatok mentését. Captcha vagy kétfaktoros bejelentkezés esetén csak kitölt, nem küld be.
-- **Beépülő vezérlők** – a leggyakoribb műveletek a Neptun saját kártyáin jelennek meg, nem külön panelen: a betelt kurzusok sorában „szólj, ha felszabadul” gomb, a betervezett kurzusú tárgyaknál pedig egy egykattintásos felvétel gomb. A gombok a Neptun saját gombjainak klónjai, így pontosan úgy néznek ki, mint a többi. Az app időnként újraépíti a listát (például rendezéskor), ezért a szkript figyeli a DOM-ot, és minden újrarajzolás után visszateszi a vezérlőket – a tárgyat pedig mindig a sor **aktuális** tartalmából azonosítja, mert az Angular újrahasznosítja a sorokat, és egy régi kötés némán rossz tárgyra mutatna.
-- **Testreszabható panelek** – az NPU paneljei a fejlécüknél fogva bárhová húzhatók, és mind a nyolc oldalukon (élek és sarkok) átméretezhetők. A pozíciót, méretet és az összecsukott állapotot panelenként megjegyzi. A fejléc `⤢` gombja visszaállít alaphelyzetbe, a `−`/`+` összecsukja vagy kinyitja. A panel nem húzható ki a képernyőről, és ha az ablakot kisebbre veszed, csak a megjelenítés igazodik – a beállított méreted megmarad, és visszaáll, amint újra van hely.
-- **Félévválasztó-memória** – a vizsgaoldalak mindig az aktuális félévre nyílnak, ami vizsgaidőszakon kívül üres. A szkript oldalanként megjegyzi, melyik félévre szűrtél utoljára, és visszatéréskor automatikusan visszaállítja (megvárja a lap saját betöltését, és a szűrés előtt ellenőrzi, hogy a választás tényleg átment — enélkül kétféle versenyhelyzet is rossz eredményt adott).
-- **Felugró ablakok elnyelése** – a visszatérő tájékoztató ablakokat (amelyeken csak egy „Rendben” gomb és egy „Ne jelenjen meg többször” jelölő van) magától becsukja. Biztonsági szabály: amin két gomb van — tehát valódi döntés, például a tárgyfelvétel megerősítése — ahhoz soha nem nyúl.
-- **Oldalcím a böngészőfülön** – a fül nem „Neptun Web”, hanem pl. „Tárgyfelvétel · Neptun”, így több fül közt is látod, melyik micsoda.
-- **Belépés után vissza az utolsó oldalra** – bekapcsolható a bejelentkezési oldalon (NPU jelölőnégyzet): belépés után nem a kezdőoldalra, hanem oda kerülsz vissza, ahol legutóbb jártál.
-- **Beállítások panel** – a jobb alsó jelvény ⚙ gombjával nyílik: modulonként ki- és bekapcsolhatod a funkciókat, **azonnali hatállyal** (a kikapcsolt modul cleanupja lefut, újratöltés nélkül). A választás megmarad. Van benne egy „Minden NPU-adat törlése” gomb is (megerősítéssel), ami visszaállít gyári állapotra.
-- **Állapotjelző** – kis jelvény a jobb alsó sarokban: NPU verzió, munkamenet hátralévő ideje, utolsó frissítés, figyelt kurzusok száma és a beállítások ⚙ gombja. A kidobásvédelem **valós állapotát** mutatja: ha ki van kapcsolva vagy el sem indult, „kidobásvédelem ki" áll rajta, nem megnyugtató zöld szöveg.
-
-> **Figyelem:** a belépési adatokat a szkript – a régi NPU-hoz hasonlóan – titkosítás nélkül (base64) tárolja a saját gépeden. Csak olyan gépen használd, amelyhez más nem fér hozzá.
+---
 
 ## Telepítés
 
-A legegyszerűbb út a weboldalon lévő útmutató: **https://neptun-powerup.com/#telepites**
-(Tampermonkey telepítése → egy kattintás a scriptre → kész; a frissítések automatikusan érkeznek.)
+1. Telepítsd a **Tampermonkey** böngésző-kiegészítőt.
+2. Kattints a [telepítő linkre](https://neptun-powerup.com/npu.user.js), és hagyd jóvá.
 
-Kézi telepítéshez: buildeld a szkriptet (lásd lent), majd nyisd meg a `dist/npu.user.js` fájlt a böngészőben.
+Részletes, képes útmutató böngészőnként: **[neptun-powerup.com](https://neptun-powerup.com/#telepites)**. A frissítések ezután maguktól érkeznek.
 
-## Weboldal
+## Mit tud?
 
-A `site/` mappában statikus HTML/CSS/JS, keretrendszer nélkül; a `worker/` mappában egy vékony
-Cloudflare Worker, amely a visszajelzés-űrlapból GitHub issue-t nyit. A nyilvános issue-ba csak a szöveg kerül; a teljes bejelentés a megadott email címmel egy privát KV-tárolóba megy, amit a karbantartó az `/admin` oldalon lát (`wrangler.jsonc`, `DEPLOY.md` 2b).
-A Cloudflare minden pushnál újrabuildel: `npm run build:site`, a statikus mappa a `site`
-(így a friss `npu.user.js` is mindig felkerül az oldalra).
+**Nem léptet ki.** A Neptun tétlenség miatt kidobna; a PowerUp! a háttérben életben tartja a munkamenetet, amíg nyitva van a lap.
 
-## Fejlesztés
+**Egykattintásos tárgyfelvétel.** Az Órarendtervezőbe betervezett tárgyaidat egy panelben látod, létszámmal együtt, és egy kattintással felveheted a betervezett kurzusaival.
+
+![Gyorsfelvétel panel a Tárgyfelvétel oldalon](docs/panel.png)
+
+**Helyfigyelő.** A betelt kurzusok mellett megjelenik egy „figyelem” gomb. Amint felszabadul egy hely, a böngésző értesítéssel és hangjelzéssel szól — akkor is, ha épp máshol jársz a Neptunban. Kérheted azt is, hogy rögtön fel is vegye.
+
+**Megmutatja, mit felejtesz el.** A tárgyfelvételi listán pirossal jelöli azt a tárgyat, amit korábbi félévben már felvettél, de nem teljesítettél. Így a pótlandó tárgy nem vész el a többi ötven között.
+
+![Piros jelölés a korábban felvett, de nem teljesített tárgyon](docs/subjects.png)
+
+**És még:** automatikus tárgylistázás, színezett vizsga-áttekintés, automatikus belépés, félévválasztó-memória, felugró ablakok elnyelése, beszédes böngészőfül-cím, mozgatható panelek.
+
+Minden funkció külön ki- és bekapcsolható a jobb alsó jelvény ⚙ gombjával.
+
+## Melyik egyetemen működik?
+
+**22 magyar intézmény** Neptunját ellenőriztem: mindegyiken elindul és felismeri a felületet — BME, Debrecen, Szeged, Miskolc, Óbudai, Pannon, Semmelweis, MATE, NKE, PPKE, Károli, Széchenyi, Metropolitan, MOME, Nyíregyháza és mások.
+
+A **funkciókat** végig eddig a BME-n teszteltem, máshol eltérés előfordulhat. Ha kipróbálod, [írd meg, mit tapasztaltál](https://neptun-powerup.com/visszajelzes) — ez a leghasznosabb, amivel segíthetsz.
+
+## Biztonságos?
+
+Kizárólag a böngésződben fut, és **semmilyen adatot nem küld külső szerverre**. Minden beállítás a saját gépeden marad. A forráskód nyílt, bárki átnézheti.
+
+Egy figyelmeztetés: ha bekapcsolod az automatikus belépést, a jelszavad a gépeden, titkosítás nélkül tárolódik. Csak olyan gépen használd, amelyhez más nem fér hozzá.
+
+## A projektről
+
+Az eredeti [Neptun PowerUp!](https://github.com/solymosi/npu)-ot **Solymosi Máté** készítette, és 2011-től 2024-ig, tizenhárom éven át gondozta, több mint 15 ezer hallgató életét könnyítve meg vele. Ez a projekt az ő munkájának szellemi utódja: minden inspiráció tőle származik. Köszönöm, Máté!
+
+Az NG változat **AI-asszisztált fejlesztéssel** készült: az új Neptun felület feltérképezését, a kód megírását és a tesztelést mesterséges intelligencia (Claude) végezte, emberi irányítás mellett.
+
+Ingyenes és az is marad. Ha hasznosnak találod, [meghívhatsz egy kávéra](https://buymeacoffee.com/neptunpowerup).
+
+Nem hivatalos projekt: nem áll kapcsolatban az SDA Informatikával és az egyetemekkel.
+
+## Fejlesztőknek
+
+<details>
+<summary>Build, tesztek, felépítés</summary>
 
 ```bash
 npm install
 npm run build      # dist/npu.user.js
 npm run watch      # újrabuild minden változtatásra
-npm run typecheck  # TypeScript ellenőrzés
+npm test           # a teljes tesztkészlet
+npm run typecheck
 ```
 
-## Architektúra
+A szkript TypeScriptben készül, esbuilddel egyetlen userscript-fájlba fordul. A `src/core/` a közös réteg (API-kliens, tárolás, útvonalak, DOM-segédek), a `src/modules/` alatt egy fájl egy funkció.
 
-- `src/core/api.ts` – Neptun REST API kliens: a tokent az Angular app sessionStorage-ából olvassa, frissítéskor vissza is írja, így a két világ szinkronban marad.
-- `src/core/router.ts` – SPA route-figyelő (history API hook).
-- `src/core/modules.ts` – modulrendszer: minden modul route-mintához kötve aktiválódik/deaktiválódik, cleanup-pal.
-- `src/core/dom.ts` – MutationObserver-alapú DOM-segédek (nincs szoros polling).
-- `src/core/storage.ts` – beállítás-tárolás (GM storage, fejlesztésnél localStorage fallback).
-- `src/modules/*` – a tényleges funkciók, egy fájl = egy modul.
+A Neptun az új felületen REST API-t használ; a felderített végpontokat a [RECON.md](RECON.md) írja le. A `site/` a projekt weboldala, a `worker/` a visszajelzés-űrlapot kiszolgáló Cloudflare Worker — üzemeltetés: [DEPLOY.md](DEPLOY.md).
 
-## Licensz
+</details>
+
+## Licenc
 
 MIT
