@@ -133,7 +133,7 @@ function buildPanel(onClose: () => void): Panel {
     `<div class="npu-item" style="display:block">` +
       `<span class="npu-item__title" style="display:block">Diagnosztika</span>` +
       `<span class="npu-item__meta" style="display:block">A napló időpontokat, HTTP-státuszokat, időtartamokat, ` +
-      `a fül láthatóságát, a Neptun saját kéréseinek útvonalát (paraméterek nélkül), elutasított frissítésnél a szerver ` +
+      `a fül láthatóságát, a Neptun és a szkript saját kéréseinek útvonalát (paraméterek nélkül), elutasított frissítésnél a szerver ` +
       `hibaüzenetét (token, azonosító, email kiszűrve) és a szerver óraeltérését tartalmazza — tokent, sütit, Neptun-kódot, ` +
       `nevet, kérés- vagy válasz-tartalmat nem. Sehova nem küldjük el: a gombbal a vágólapra másolod, és te döntöd el, ` +
       `hova illeszted be (a visszajelzés-űrlapba belefér).</span>` +

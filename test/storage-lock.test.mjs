@@ -9,7 +9,7 @@ globalThis.location = { pathname: "/hallgatoi/dashboard", origin: "https://neptu
 globalThis.document = { title: "Neptun Web", querySelector: s => (s === "base" ? { getAttribute: () => "/hallgatoi/" } : null) };
 Object.defineProperty(globalThis, "navigator", { value: { userAgent: "test" }, configurable: true, writable: true });
 globalThis.sessionStorage = { getItem: () => null, setItem() {}, removeItem() {} };
-globalThis.window = { setInterval, clearInterval };
+globalThis.window = { setInterval, clearInterval, setTimeout, clearTimeout };
 console.log("A) két fül, közös tároló");
 const tab1 = await import(`../${STORAGE}?tab=1`), tab2 = await import(`../${STORAGE}?tab=2`);
 await tab1.initialize(); await tab2.initialize();

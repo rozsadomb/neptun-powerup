@@ -30,8 +30,12 @@ export interface ApiCall {
 }
 
 type Listener = (call: ApiCall) => void;
+type StartListener = (info: { method: string; path: string }) => void;
 
 const listeners = new Set<Listener>();
+// Notified when the app SENDS an API request, before any response: the gate
+// needs to know that a refresh is in flight, not only that it has finished.
+const startListeners = new Set<StartListener>();
 let installed = false;
 let observedCalls = 0;
 
@@ -104,6 +108,17 @@ function install(): void {
       try {
         const info = pending.get(this);
         if (info && info.url.includes(API_MARKER)) {
+          const startPath = info.url.slice(info.url.indexOf(API_MARKER) + API_MARKER.length).split(/[?#]/)[0];
+          const startInfo = { method: info.method.toUpperCase(), path: startPath };
+          queueMicrotask(() => {
+            [...startListeners].forEach(listener => {
+              try {
+                listener(startInfo);
+              } catch (error) {
+                console.error("[NPU] net hook start listener failed", error);
+              }
+            });
+          });
           // loadend fires once per send for every terminal outcome, after the
           // app's own load handler — so its state is already updated when we
           // report. `once` keeps a reused XHR from accumulating listeners.
@@ -176,6 +191,15 @@ export function onApiCall(listener: Listener): () => void {
   install();
   return () => {
     listeners.delete(listener);
+  };
+}
+
+/** Subscribes to the moment the app sends an API request. Returns an unsubscribe function. */
+export function onApiStart(listener: StartListener): () => void {
+  startListeners.add(listener);
+  install();
+  return () => {
+    startListeners.delete(listener);
   };
 }
 

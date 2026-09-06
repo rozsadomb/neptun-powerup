@@ -1,4 +1,5 @@
 import { isNeptunApp } from "./core/base";
+import { trackAppRefreshes } from "./core/api";
 import { log, VERSION } from "./core/env";
 import { runModules } from "./core/modules";
 import { initRouter } from "./core/router";
@@ -35,6 +36,7 @@ import { termMemory } from "./modules/termMemory";
   await storage.initialize();
   log(`Neptun PowerUp! NG v${VERSION} starting`);
   initRouter();
+  trackAppRefreshes();
   runModules([
     keepAlive,
     statusBadge,

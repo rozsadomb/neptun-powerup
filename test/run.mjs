@@ -18,10 +18,21 @@ for (const name of ["api", "storage", "base"]) {
   });
 }
 
+await build({
+  entryPoints: ["test/core-entry.ts"],
+  bundle: true,
+  format: "esm",
+  platform: "node",
+  define: { __NPU_VERSION__: '"test"' },
+  outfile: `${out}/core.mjs`,
+  logLevel: "error",
+});
+
 const suites = [
   ["test/session.test.mjs", [`${out}/api.mjs`]],
   ["test/storage-lock.test.mjs", [`${out}/storage.mjs`, `${out}/api.mjs`]],
   ["test/universities.test.mjs", ["dist/npu.user.js", `${out}/base.mjs`]],
+  ["test/gate.test.mjs", [`${out}/core.mjs`]],
   ["test/feedback.test.mjs", []],
 ];
 let failed = 0;

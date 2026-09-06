@@ -8,7 +8,7 @@ globalThis.document = { title: "Neptun Web", querySelector: s => (s === "base" ?
 Object.defineProperty(globalThis, "navigator", { value: { userAgent: "test" }, configurable: true, writable: true });
 globalThis.sessionStorage = makeStore();
 globalThis.localStorage = makeStore();
-globalThis.window = { setInterval, clearInterval };
+globalThis.window = { setInterval, clearInterval, setTimeout, clearTimeout };
 function token(name, sec) { const b64 = o => Buffer.from(JSON.stringify(o)).toString("base64url"); return `${b64({ alg: "HS256" })}.${b64({ sub: name, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + sec })}.sig-${name}`; }
 let fetchMode = "401", fetchCalls = 0;
 globalThis.fetch = async () => { fetchCalls++; if (fetchMode === "401") return { ok: false, status: 401 }; return { ok: true, status: 200, json: async () => ({ accessToken: token("refreshed", 300), sessionTimeoutInMinutes: 30 }) }; };
