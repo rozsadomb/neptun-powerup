@@ -6,3 +6,6 @@ site/npu.user.js
 .wrangler/
 .test-build/
 .demo/
+
+# Claude Code helyi beállítások
+.claude/settings.local.json
