@@ -6,10 +6,11 @@
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "build:site": "npm run build && cp dist/npu.user.js site/npu.user.js && node -e \"const p=require('./package.json');require('fs').writeFileSync('site/version.json',JSON.stringify({version:p.version})+'\\n')\"",
+    "build:site": "node build.mjs --site && cp dist/npu.user.js site/npu.user.js",
     "watch": "node build.mjs --watch",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build && node test/run.mjs"
+    "test": "npm run build:site && node test/run.mjs",
+    "deploy": "wrangler deploy"
   },
   "license": "MIT",
   "devDependencies": {

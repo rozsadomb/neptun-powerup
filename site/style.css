@@ -278,59 +278,24 @@ section { padding-block: clamp(72px, 9vw, 120px); }
 }
 .demo__caption { margin-top: 14px; font-size: .875rem; color: var(--muted); text-align: center; text-wrap: pretty; }
 
-/* ---------- az NPU saját felülete (a szkript valódi stílusértékei) ---------- */
-.npu-panel {
-  width: min(100%, 372px); margin: 0 auto;
-  background: #fff; color: #212842;
-  border-radius: 8px;
+/* ---------- az NPU saját felülete ----------
+   A panel és a jelvény kinézete a szkript valódi CSS-e (demo.js injektálja a
+   src/core/ui.ts és src/core/badge.ts alapján). Itt csak az van, ami a
+   weboldal sajátja: hol üljenek a bemutató keretében, és a bemutató extrái. */
+.device__screen .npu-panel, .shot .npu-panel {
+  position: static; width: min(100%, 372px); height: auto; margin: 0 auto; z-index: auto;
   box-shadow: 0 8px 28px rgb(27 42 94 / .18);
-  font: var(--npu-font);
-  overflow: hidden;
 }
-.npu-panel__head {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 8px 12px; background: #1b2a5e; color: #fff; font-weight: 600; user-select: none;
-}
-.npu-panel__buttons { display: flex; gap: 2px; opacity: .8; font-size: 13px; }
-.npu-panel__buttons span { padding: 2px 5px; }
-.npu-panel__body { padding: 10px 12px; }
-.npu-note { color: #5a6482; font-size: 12px; margin: 6px 0; }
-.npu-item {
-  border: 1px solid #e3e7f2; border-left: 4px solid #adb5bd; border-radius: 6px;
-  padding: 6px 8px; margin-bottom: 8px; background: #fff;
-  transition: background-color 260ms ease, border-color 260ms ease;
-}
-.npu-item__title { font-weight: 600; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.npu-item { transition: background-color 260ms ease, border-color 260ms ease; }
+.npu-item__title { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
 .npu-credit { font-weight: 400; color: #5a6482; font-size: 12px; white-space: nowrap; }
-.npu-item__meta { color: #5a6482; font-size: 12px; }
-.npu-item--green { border-left-color: #2f9e44; background: #f0fbf2; }
-.npu-item--red { border-left-color: #e03131; background: #fff5f5; }
-.npu-item--yellow { border-left-color: #f08c00; background: #fffaeb; }
-.npu-item--blue { border-left-color: #2b6cb0; background: #f3f8fd; }
 .npu-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; min-height: 24px; align-items: center; }
-.npu-button {
-  border: 0; border-radius: 5px; background: #2b6cb0; color: #fff;
-  padding: 4px 10px; cursor: pointer; font: 12px system-ui, sans-serif;
-  transition: transform 140ms var(--ease-out), background-color 160ms ease, opacity 160ms ease;
-}
+.npu-button { transition: transform 140ms var(--ease-out), background-color 160ms ease, opacity 160ms ease; }
 .npu-button:active { transform: scale(.96); }
-.npu-button:disabled { opacity: .5; cursor: default; }
-.npu-button--subtle { background: #f1f4fb; color: #1b2a5e; border: 1px solid #c9d2e8; }
 .npu-ok-text { color: #2f9e44; font-size: 12px; font-weight: 600; }
-.npu-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  background: #1b2a5e; color: #fff;
-  font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
-  padding: 6px 10px; border-radius: 6px;
-  box-shadow: 0 1px 4px rgb(0 0 0 / .35);
-  white-space: nowrap;
-}
-.npu-badge b { font-weight: 600; }
-.npu-badge .npu-ok { color: #7ee787; transition: color 240ms ease; }
-.npu-badge .npu-ok.is-fresh { color: #fff; }
-.npu-badge .npu-watch { color: #ffd8a8; }
-.npu-badge .npu-gear { margin-left: 4px; background: rgb(255 255 255 / .12); border-radius: 4px; padding: 0 6px; font-size: 13px; }
-.npu-badge [data-timer] { font-variant-numeric: tabular-nums; }
+.npu-badge { white-space: nowrap; }
+.npu-badge .npu-keep { transition: color 240ms ease; }
+.npu-badge .npu-keep.is-fresh { color: #fff; }
 .device__screen .npu-badge { position: absolute; right: 14px; bottom: 14px; max-width: calc(100% - 28px); }
 @media (max-width: 480px) {
   .npu-badge { white-space: normal; flex-wrap: wrap; row-gap: 2px; }
@@ -389,9 +354,9 @@ section { padding-block: clamp(72px, 9vw, 120px); }
 .tile__art { margin-top: auto; }
 .tile__row { display: flex; gap: 24px; align-items: flex-end; }
 .tile__row .shot { flex: 1 1 auto; }
-.tile--wide .npu-panel { margin: 0; width: min(100%, 420px); box-shadow: 0 6px 20px rgb(27 42 94 / .14); }
+.tile--wide .shot .npu-panel { margin: 0; width: min(100%, 420px); box-shadow: 0 6px 20px rgb(27 42 94 / .14); }
 .tile--mid .shot { min-height: 168px; display: flex; align-items: flex-end; justify-content: flex-end; }
-.tile--mid .npu-badge { font-size: 13.5px; padding: 7px 12px; }
+.tile--mid .npu-badge { font-size: 13px; padding: 7px 12px; max-width: 100%; white-space: normal; flex-wrap: wrap; row-gap: 2px; }
 .flist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 56px; margin: 56px 0 0; padding: 0; list-style: none; }
 .flist li { display: grid; grid-template-columns: 40px 1fr; gap: 16px; padding: 22px 0; border-top: 1px solid var(--line); align-items: start; }
 .flist .ic { width: 40px; height: 40px; border-radius: 12px; background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink); display: grid; place-items: center; }

@@ -18,6 +18,19 @@ const options = {
   legalComments: "none",
 };
 
+// A weboldal bemutatói ugyanabból a forrásból (src/site/demo.ts) épülnek, mint
+// a szkript: a verziószám és a kinézet így kézi másolás nélkül egyezik.
+const siteDemo = {
+  entryPoints: ["src/site/demo.ts"],
+  bundle: true,
+  format: "iife",
+  target: "es2020",
+  outfile: "site/demo.js",
+  define: { __NPU_VERSION__: JSON.stringify(pkg.version) },
+  legalComments: "none",
+  banner: { js: `// Generált fájl (npm run build:site), ne szerkeszd: forrás src/site/demo.ts — v${pkg.version}` },
+};
+
 if (process.argv.includes("--watch")) {
   const ctx = await esbuild.context(options);
   await ctx.watch();
@@ -25,4 +38,8 @@ if (process.argv.includes("--watch")) {
 } else {
   await esbuild.build(options);
   console.log(`Built dist/npu.user.js (v${pkg.version})`);
+  if (process.argv.includes("--site")) {
+    await esbuild.build(siteDemo);
+    console.log(`Built site/demo.js (v${pkg.version})`);
+  }
 }

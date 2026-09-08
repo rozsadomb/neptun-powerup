@@ -133,12 +133,23 @@ különben a meglévő telepítések a régi címről próbálnának frissülni)
 
 ```bash
 npm version patch --no-git-tag-version   # vagy minor / major
-npm run typecheck && npm run build:site  # ellenőrzés helyben
+npm test                                 # build:site + tesztek (a site-konzisztenciát is nézi)
 git add -A && git commit -m "vX.Y.Z: ..." && git push
+npx wrangler deploy                      # Node 22 kell: nvm use 22
 ```
 
-A push után a Cloudflare automatikusan deployol. A Tampermonkey néhány órán belül
-észreveszi az új verziószámot a `@updateURL`-en, és frissíti a felhasználók scriptjét.
+A verziószám egyetlen helyen él, a `package.json`-ban: a build innen süti bele a
+szkript fejlécébe (`site/npu.user.js`) és a weboldal bemutatóiba (`site/demo.js`,
+a `src/site/demo.ts`-ből). Mindkettő generált fájl, nincs a gitben; a deploy a
+frissen buildelt `site/` mappát tölti fel. A `test/site.test.mjs` bukik, ha a
+HTML-ben kézzel beírt verziószám vagy a szkript CSS-ének másolata van, és a
+`.githooks/pre-push` (egyszeri bekapcsolás: `git config core.hooksPath .githooks`)
+push előtt lefuttatja az `npm test`-et, így elavult bemutató nem mehet ki.
+
+Ha a Cloudflare git-integrációja be van kötve, a push maga is deployol
+(`npm run build:site` + `npx wrangler deploy`); a kézi `npx wrangler deploy` ugyanezt
+teszi azonnal. A Tampermonkey néhány órán belül észreveszi az új verziószámot a
+`@updateURL`-en, és frissíti a felhasználók scriptjét.
 
 > A verziószámot mindig emelni kell, különben a Tampermonkey nem tekinti frissítésnek.
 

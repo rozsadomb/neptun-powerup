@@ -217,29 +217,20 @@
     });
   }
 
-  // Kiírja a legfrissebb kiadás számát a Frissítés szakaszba és a jelvény-bemutatókba.
-  // Külön kis fájlból, amit a build ír ki: a szkript fejlécének Range-kérése a
-  // kiszolgálón a teljes 100+ KB-ot adja vissza, vagyis minden látogató letöltené
-  // az egészet egyetlen számért.
+  // A legfrissebb kiadás száma a Frissítés szakaszban. A demo.js-ből jön, amibe a
+  // build süti bele a package.json verzióját: ugyanaz a szám, ami a jelvény-
+  // bemutatókon és a szkriptben van.
   function initVersion() {
     var slot = document.getElementById("latestVersion");
-    var badges = document.querySelectorAll("[data-version]");
-    if (!slot && !badges.length) return;
-    fetch("/version.json")
-      .then(function (response) {
-        if (!response.ok) throw new Error(String(response.status));
-        return response.json();
-      })
-      .then(function (data) {
-        if (!data || !data.version) throw new Error("no version");
-        if (slot) slot.textContent = "v" + data.version;
-        badges.forEach(function (b) { b.textContent = data.version; });
-      })
-      .catch(function () {
-        // Kényelmi információ: ha nem sikerül, ne látsszon hibásnak az oldal.
-        var row = slot && slot.closest("[data-version-row]");
-        if (row) row.hidden = true;
-      });
+    if (!slot) return;
+    var version = window.NPU_DEMO && window.NPU_DEMO.version;
+    if (version) {
+      slot.textContent = "v" + version;
+    } else {
+      // Kényelmi információ: ha a bundle nem töltött be, ne látsszon hibásnak az oldal.
+      var row = slot.closest("[data-version-row]");
+      if (row) row.hidden = true;
+    }
   }
 
   // ---------- görgetésre megjelenés (egyszer, IntersectionObserverrel) ----------
@@ -298,7 +289,7 @@
   // A valódi jelvény a hátralévő időt mutatja, és a kidobásvédelem időnként
   // visszatolja 30 percre. Itt gyorsítva: fél percenként frissül.
   function initTimers() {
-    var timers = document.querySelectorAll("[data-timer]");
+    var timers = document.querySelectorAll(".npu-badge .npu-time");
     if (!timers.length) return;
     var secs = 29 * 60 + 54;
     var REFRESH_AT = 29 * 60 + 24;
@@ -309,7 +300,7 @@
       timers.forEach(function (t) { t.textContent = text; });
     }
     function flash() {
-      document.querySelectorAll("[data-keep]").forEach(function (k) {
+      document.querySelectorAll(".npu-badge .npu-keep").forEach(function (k) {
         k.classList.add("is-fresh");
         setTimeout(function () { k.classList.remove("is-fresh"); }, 900);
       });
@@ -330,7 +321,7 @@
     var count = document.getElementById("demoCount");
     var allButton = document.getElementById("demoAll");
     var notif = document.getElementById("demoNotif");
-    var watchCount = demo.querySelector("[data-watchcount]");
+    var watchCount = demo.querySelector("#demoBadge .npu-watch");
     var notifTimer = null;
 
     function remaining() {

@@ -1,0 +1,12 @@
+#!/bin/sh
+# Push előtt: friss site-build (szkript + weboldali bemutatók ugyanabból a
+# verzióból) és a teljes tesztkészlet. Bekapcsolás egyszer:
+#   git config core.hooksPath .githooks
+echo "[pre-push] npm test (build:site + tesztek)…"
+npm test >/tmp/npu-prepush.log 2>&1 || {
+  tail -40 /tmp/npu-prepush.log
+  echo
+  echo "[pre-push] A push megállt: bukó teszt vagy elavult build. Részletek: /tmp/npu-prepush.log"
+  exit 1
+}
+echo "[pre-push] rendben, mehet."

@@ -48,6 +48,7 @@ const suites = [
   ["test/watch.test.mjs", [`${out}/watch.mjs`]],
   ["test/notice.test.mjs", [`${out}/notice.mjs`]],
   ["test/feedback.test.mjs", []],
+  ["test/site.test.mjs", []],
 ];
 let failed = 0;
 for (const [file, args] of suites) {

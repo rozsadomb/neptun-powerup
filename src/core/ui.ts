@@ -195,10 +195,19 @@ export interface Panel {
 type Direction = "n" | "s" | "e" | "w" | "nw" | "ne" | "sw" | "se";
 const DIRECTIONS: Direction[] = ["n", "s", "e", "w", "nw", "ne", "sw", "se"];
 
-export function createPanel(id: string, title: string): Panel {
-  ensureUiCss();
-  document.getElementById(id)?.remove();
+export interface PanelShell {
+  panel: HTMLElement;
+  header: HTMLElement;
+  body: HTMLElement;
+  toggle: HTMLButtonElement;
+  reset: HTMLButtonElement;
+}
 
+// The panel's DOM without any behaviour: the website's demos build the real
+// frame from this, so a change to the header or its buttons shows up there
+// too. createPanel adds dragging, resizing and persistence on top.
+export function buildPanelShell(id: string, title: string): PanelShell {
+  ensureUiCss();
   const panel = document.createElement("div");
   panel.id = id;
   panel.className = "npu-panel";
@@ -211,6 +220,18 @@ export function createPanel(id: string, title: string): Panel {
     `</span></div>` +
     `<div class="npu-panel__body"></div>`;
   panel.querySelector<HTMLElement>(".npu-panel__title")!.textContent = title;
+  return {
+    panel,
+    header: panel.querySelector<HTMLElement>(".npu-panel__header")!,
+    body: panel.querySelector<HTMLElement>(".npu-panel__body")!,
+    toggle: panel.querySelector<HTMLButtonElement>(".npu-panel__toggle")!,
+    reset: panel.querySelector<HTMLButtonElement>(".npu-panel__reset")!,
+  };
+}
+
+export function createPanel(id: string, title: string): Panel {
+  document.getElementById(id)?.remove();
+  const { panel, header, body, toggle, reset } = buildPanelShell(id, title);
 
   DIRECTIONS.forEach(direction => {
     const handle = document.createElement("div");
@@ -218,10 +239,6 @@ export function createPanel(id: string, title: string): Panel {
     handle.dataset.direction = direction;
     panel.appendChild(handle);
   });
-
-  const header = panel.querySelector<HTMLElement>(".npu-panel__header")!;
-  const toggle = panel.querySelector<HTMLButtonElement>(".npu-panel__toggle")!;
-  const reset = panel.querySelector<HTMLButtonElement>(".npu-panel__reset")!;
 
   // What the user asked for. Clamping is presentation only: a temporarily
   // tiny viewport (which happens while the tab is closing or the window is
@@ -423,7 +440,7 @@ export function createPanel(id: string, title: string): Panel {
   document.body.appendChild(panel);
 
   return {
-    body: panel.querySelector<HTMLElement>(".npu-panel__body")!,
+    body,
     destroy: () => {
       window.clearTimeout(saveTimer);
       persist(); // flush any pending geometry change

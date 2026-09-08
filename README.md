@@ -63,12 +63,16 @@ Nem hivatalos projekt: nem áll kapcsolatban az SDA Informatikával és az egyet
 ```bash
 npm install
 npm run build      # dist/npu.user.js
+npm run build:site # + site/npu.user.js és site/demo.js (a weboldal bemutatói)
 npm run watch      # újrabuild minden változtatásra
-npm test           # a teljes tesztkészlet
+npm test           # build:site + a teljes tesztkészlet
 npm run typecheck
+git config core.hooksPath .githooks   # egyszer: push előtt automatikusan npm test
 ```
 
 A szkript TypeScriptben készül, esbuilddel egyetlen userscript-fájlba fordul. A `src/core/` a közös réteg (API-kliens, tárolás, útvonalak, DOM-segédek), a `src/modules/` alatt egy fájl egy funkció.
+
+A weboldal bemutatói (a panel, a jelvény, a verziószám) nem kézzel másolt HTML: a `src/site/demo.ts` a szkript valódi komponenseiből építi őket a build során, ezért ami a szkripten változik, az a következő kiadással a weboldalon is változik. A `test/site.test.mjs` ellenőrzi, hogy a kettő egyezik, és a pre-push hook nem enged pusholni, ha nem.
 
 A Neptun az új felületen REST API-t használ; a felderített végpontokat a [RECON.md](RECON.md) írja le. A `site/` a projekt weboldala, a `worker/` a visszajelzés-űrlapot kiszolgáló Cloudflare Worker — üzemeltetés: [DEPLOY.md](DEPLOY.md).
 

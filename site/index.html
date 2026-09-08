@@ -93,36 +93,12 @@
     <div class="demo" data-rise style="--i:3">
       <div class="device">
         <div class="device__screen" id="demo">
-          <div class="npu-panel" role="group" aria-label="Az NPU Gyorsfelvétel panelje, interaktív bemutató">
-            <div class="npu-panel__head">
-              <span class="npu-panel__title">NPU · Gyorsfelvétel</span>
-              <span class="npu-panel__buttons" aria-hidden="true"><span>⤢</span><span>−</span></span>
-            </div>
-            <div class="npu-panel__body">
-              <div class="npu-note">Betervezett, még fel nem vett tárgyak: <b id="demoCount">3</b></div>
-              <div class="npu-item" data-course="analizis">
-                <div class="npu-item__title">Analízis 1 informatikusoknak <span class="npu-credit">6 kredit</span></div>
-                <div class="npu-item__meta">E1 (Elmélet) · 212/240 fő</div>
-                <div class="npu-actions"><button class="npu-button" type="button" data-act="signup">Felvétel</button></div>
-              </div>
-              <div class="npu-item" data-course="digit">
-                <div class="npu-item__title">Digitális technika <span class="npu-credit">5 kredit</span></div>
-                <div class="npu-item__meta" data-meta>L1 (Labor) · 24/24 fő · BETELT · 3 várólistán</div>
-                <div class="npu-actions"><button class="npu-button npu-button--subtle" type="button" data-act="watch">🔔 figyelem</button></div>
-              </div>
-              <div class="npu-item" data-course="prog">
-                <div class="npu-item__title">A programozás alapjai 1 <span class="npu-credit">7 kredit</span></div>
-                <div class="npu-item__meta">G2 (Gyakorlat) · 118/140 fő</div>
-                <div class="npu-actions"><button class="npu-button" type="button" data-act="signup">Felvétel</button></div>
-              </div>
-              <button class="npu-button npu-button--subtle" type="button" data-act="all" id="demoAll">Mindet felveszi (2)</button>
-            </div>
-          </div>
+          <div data-npu-panel="hero" role="group" aria-label="Az NPU Gyorsfelvétel panelje, interaktív bemutató"></div>
           <div class="notif" id="demoNotif" role="status" aria-live="polite">
             <span class="notif__ic"><svg class="icon"><use href="#i-bell-ring"/></svg></span>
             <div><b>Felszabadult egy hely!</b><span>Digitális technika · L1 (Labor) · 23/24 fő</span></div>
           </div>
-          <div class="npu-badge" id="demoBadge"><b>NPU <span data-version>0.12.0</span></b>&nbsp;· munkamenet: <span data-timer>29:54</span>&nbsp;· <span class="npu-ok" data-keep>kidobásvédelem aktív</span><span class="npu-watch" data-watchcount hidden>&nbsp;· 1 figyelt</span><span class="npu-gear" aria-hidden="true">⚙</span></div>
+          <div class="npu-badge" id="demoBadge" data-npu-badge data-watch="1"></div>
         </div>
       </div>
       <p class="demo__caption">Interaktív bemutató: a tárgyak kitaláltak, a panel az igazi. Próbáld ki a gombokat.</p>
@@ -162,21 +138,7 @@
         <p>Tervezd be a kurzusaidat előre az Órarendtervezőben. A jelentkezés pillanatában egy kattintással felveszed mindet, a betelt kurzusokra automatikus újrapróbálkozással.</p>
         <div class="tile__art">
           <div class="shot shot--static" aria-hidden="true">
-            <div class="npu-panel">
-              <div class="npu-panel__head"><span class="npu-panel__title">NPU · Gyorsfelvétel</span><span class="npu-panel__buttons"><span>⤢</span><span>−</span></span></div>
-              <div class="npu-panel__body">
-                <div class="npu-item npu-item--green">
-                  <div class="npu-item__title">Számítógép-architektúrák <span class="npu-credit">4 kredit</span></div>
-                  <div class="npu-item__meta">E1 (Elmélet) · 96/120 fő</div>
-                  <div class="npu-actions"><span class="npu-ok-text">felvéve</span></div>
-                </div>
-                <div class="npu-item">
-                  <div class="npu-item__title">Adatbázisok <span class="npu-credit">5 kredit</span></div>
-                  <div class="npu-item__meta">L3 (Labor) · 20/20 fő · BETELT · 1 várólistán</div>
-                  <div class="npu-actions"><button class="npu-button" type="button" disabled tabindex="-1">Próba #4...</button><span class="npu-note" style="margin:0">újrapróbálás 10 mp-enként</span></div>
-                </div>
-              </div>
-            </div>
+            <div data-npu-panel="retry"></div>
           </div>
         </div>
       </article>
@@ -186,7 +148,7 @@
         <p>A Neptun 30 percenként kiléptetne. A PowerUp! időben megújítja a munkamenetet, így nem veszíted el a munkád a legrosszabb pillanatban.</p>
         <div class="tile__art">
           <div class="shot" style="display:flex;justify-content:flex-end">
-            <div class="npu-badge"><b>NPU <span data-version>0.12.0</span></b>&nbsp;· munkamenet: <span data-timer>29:54</span>&nbsp;· <span class="npu-ok" data-keep>kidobásvédelem aktív</span><span class="npu-gear" aria-hidden="true">⚙</span></div>
+            <div class="npu-badge" data-npu-badge></div>
           </div>
         </div>
       </article>
@@ -295,7 +257,7 @@
         <div>
           <h3>Lépj be a Neptunba</h3>
           <p>Ha a jobb alsó sarokban megjelenik ez a kis jelvény, minden működik:</p>
-          <div class="npu-badge"><b>NPU <span data-version>0.12.0</span></b>&nbsp;· munkamenet: <span data-timer>29:54</span>&nbsp;· <span class="npu-ok" data-keep>kidobásvédelem aktív</span><span class="npu-gear" aria-hidden="true">⚙</span></div>
+          <div class="npu-badge" data-npu-badge></div>
           <p class="hint">Használd egészséggel.</p>
         </div>
       </div>
@@ -488,6 +450,7 @@
   </div>
 </footer>
 
+<script src="/demo.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
