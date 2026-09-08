@@ -27,7 +27,9 @@ interface PanelGeometry {
 
 let cssInjected = false;
 
-function ensureCss(): void {
+// A közös stílusok (gombok, jegyzetek) panel nélkül is kellhetnek: a
+// béta-értesítő kártya is ezeket használja.
+export function ensureUiCss(): void {
   if (cssInjected) {
     return;
   }
@@ -194,7 +196,7 @@ type Direction = "n" | "s" | "e" | "w" | "nw" | "ne" | "sw" | "se";
 const DIRECTIONS: Direction[] = ["n", "s", "e", "w", "nw", "ne", "sw", "se"];
 
 export function createPanel(id: string, title: string): Panel {
-  ensureCss();
+  ensureUiCss();
   document.getElementById(id)?.remove();
 
   const panel = document.createElement("div");

@@ -1,5 +1,5 @@
 import { getSessionExpiration, isLoggedIn, isSessionLost } from "../core/api";
-import { VERSION } from "../core/env";
+import { IS_BETA, VERSION } from "../core/env";
 import { injectCss } from "../core/dom";
 import type { NpuModule } from "../core/modules";
 import { OPEN_SETTINGS_EVENT } from "../core/settings";
@@ -47,6 +47,7 @@ export const statusBadge: NpuModule = {
         pointer-events: none;
       }
       #npu-badge b { font-weight: 600; }
+      #npu-badge .npu-beta { color: #ffd8a8; font-weight: 600; letter-spacing: .04em; }
       #npu-badge .npu-ok { color: #7ee787; }
       #npu-badge .npu-warn { color: #ffc9c9; }
       #npu-badge .npu-watch { color: #ffd8a8; }
@@ -79,9 +80,10 @@ export const statusBadge: NpuModule = {
 
     // Only the text span is re-rendered, so the gear keeps its listener and
     // hover state.
+    const name = `<b>NPU ${VERSION}</b>${IS_BETA ? ` <span class="npu-beta">béta</span>` : ""}`;
     const render = () => {
       if (isSessionLost()) {
-        text.innerHTML = `<b>NPU ${VERSION}</b> · <span class="npu-warn">a munkamenet lejárt, lépj be újra</span> · <span class="npu-off">⚙ → napló</span>`;
+        text.innerHTML = `${name} · <span class="npu-warn">a munkamenet lejárt, lépj be újra</span> · <span class="npu-off">⚙ → napló</span>`;
       } else if (isLoggedIn()) {
         // Report the keep-alive's real state. It is switchable in the
         // settings, so claiming it is active whenever we are logged in would
@@ -96,9 +98,9 @@ export const statusBadge: NpuModule = {
         const watchCount = Object.keys(getWatches()).length;
         const watching = watchCount > 0 ? ` · <span class="npu-watch">🔔 ${watchCount} figyelve</span>` : "";
         text.innerHTML =
-          `<b>NPU ${VERSION}</b> · munkamenet: ${formatRemaining(getSessionExpiration())} · ${keep}${watching}`;
+          `${name} · munkamenet: ${formatRemaining(getSessionExpiration())} · ${keep}${watching}`;
       } else {
-        text.innerHTML = `<b>NPU ${VERSION}</b>`;
+        text.innerHTML = name;
       }
     };
     render();

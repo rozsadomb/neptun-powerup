@@ -88,6 +88,12 @@ const ENTRIES: SettingEntry[] = [
     description: "Tárolt belépési adatok és visszaszámlálásos belépés a bejelentkezési oldalon.",
   },
   {
+    moduleId: "betaNotice",
+    label: "Béta-értesítő és napló-emlékeztető",
+    description:
+      "Belépés után egyszer (verziónként) szól, hogy a szkript béta, és 25 perc használat után egyszer megkérdezi, elküldenéd-e a naplót. Semmit nem küld magától.",
+  },
+  {
     label: "Belépés után vissza az utolsó oldalra",
     description: "Belépés után nem a kezdőoldal, hanem a legutóbb nézett oldal jön be.",
     custom: {

@@ -567,6 +567,8 @@ form.feedback .hint { margin-top: 8px; }
 .type-row input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 3px; }
 .hp { position: absolute; left: -9999px; opacity: 0; height: 0; overflow: hidden; }
 .form-status { border-radius: var(--radius-input); padding: 12px 16px; font-size: .9375rem; border: 1px solid; }
+/* A #naplo horgonyra érkezve a ragadós fejléc ne takarja ki az űrlap tetejét. */
+#naplo { scroll-margin-top: 140px; }
 .form-status.ok { background: #e9f9ee; border-color: #b7e4c3; color: #1d6b30; }
 .form-status.err { background: #fdecec; border-color: #f2bcbc; color: #8f1d1d; }
 @media (prefers-color-scheme: dark) {

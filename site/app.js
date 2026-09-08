@@ -183,6 +183,20 @@
 
   // A "90 nap" a szerver beállításából jön (FEEDBACK_TTL_DAYS), hogy a szöveg
   // ne szakadjon el a valóságtól, ha az üzemeltető átállítja.
+  // ---------- Napló-emlékeztetőből érkező látogató (#naplo) ----------
+  function initLogBanner() {
+    var banner = document.getElementById("naplo");
+    if (!banner || location.hash !== "#naplo") return;
+    banner.hidden = false;
+    var title = document.getElementById("fbTitle");
+    var body = document.getElementById("fbBody");
+    if (title && !title.value) title.value = "Napló 25 perc használat után";
+    if (body) {
+      body.placeholder = "Illeszd be ide a naplót (Ctrl+V), és írd elé egy sorban, ha valamit tapasztaltál. Melyik böngésző?";
+      body.focus();
+    }
+  }
+
   function initFeedbackTtl() {
     var slots = document.querySelectorAll("[data-ttl-days]");
     if (!slots.length) return;
@@ -398,6 +412,7 @@
   initNav();
   initInstallWizard();
   initFeedbackForm();
+  initLogBanner();
   initFeedbackTtl();
   initBmac();
   initVersion();

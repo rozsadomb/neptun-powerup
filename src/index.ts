@@ -6,6 +6,7 @@ import { initRouter } from "./core/router";
 import * as storage from "./core/storage";
 import { autoLogin } from "./modules/autoLogin";
 import { backToLastPage } from "./modules/backToLastPage";
+import { betaNotice } from "./modules/betaNotice";
 import { courseWatch } from "./modules/courseWatch";
 import { examOverview } from "./modules/examOverview";
 import { keepAlive } from "./modules/keepAlive";
@@ -52,5 +53,6 @@ import { termMemory } from "./modules/termMemory";
     examOverview,
     quickSignup,
     autoLogin,
+    betaNotice,
   ]);
 })();

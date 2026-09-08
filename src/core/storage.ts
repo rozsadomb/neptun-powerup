@@ -106,6 +106,25 @@ function persist(mutation: Mutation | null): void {
     });
 }
 
+// Re-reads the stored blob, so a decision can see what another tab wrote
+// since this tab last saved. It queues behind in-flight writes, and re-applies
+// the mutations that are still pending here, exactly like a write does.
+export function reload(): Promise<void> {
+  writeChain = writeChain
+    .then(async () => {
+      let fresh: Record<string, unknown>;
+      try {
+        fresh = JSON.parse((await rawLoad()) ?? "{}") ?? {};
+      } catch {
+        fresh = {};
+      }
+      pendingMutations.forEach(later => applyMutation(fresh, later));
+      data = fresh;
+    })
+    .catch(() => {});
+  return writeChain;
+}
+
 export function get<T>(...keys: string[]): T | undefined {
   let current: unknown = data;
   for (const key of keys) {

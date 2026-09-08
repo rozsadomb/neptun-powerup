@@ -16,6 +16,11 @@ declare global {
 
 export const VERSION: string = typeof __NPU_VERSION__ !== "undefined" ? __NPU_VERSION__ : "dev";
 
+// Amíg igaz: a jelvény „béta” címkét mutat, és a betaNotice modul belépés
+// után szól, hogy a napló elküldése akkor is segít, ha minden működik. Ha a
+// projekt kilép a bétából, ezt az egy kapcsolót kell átbillenteni.
+export const IS_BETA = true;
+
 export function hasGM(): boolean {
   return typeof GM !== "undefined" && !!GM && typeof GM.getValue === "function";
 }
