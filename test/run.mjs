@@ -6,7 +6,7 @@ import { mkdirSync } from "node:fs";
 
 const out = ".test-build";
 mkdirSync(out, { recursive: true });
-for (const name of ["api", "storage", "base"]) {
+for (const name of ["api", "storage", "base", "diag"]) {
   await build({
     entryPoints: [`src/core/${name}.ts`],
     bundle: true,
@@ -18,7 +18,7 @@ for (const name of ["api", "storage", "base"]) {
   });
 }
 
-for (const entry of ["core", "watch", "notice"]) {
+for (const entry of ["core", "watch", "notice", "keepalive"]) {
   await build({
     entryPoints: [`test/${entry}-entry.ts`],
     bundle: true,
@@ -47,6 +47,8 @@ const suites = [
   ["test/gate.test.mjs", [`${out}/core.mjs`]],
   ["test/watch.test.mjs", [`${out}/watch.mjs`]],
   ["test/notice.test.mjs", [`${out}/notice.mjs`]],
+  ["test/diag.test.mjs", [`${out}/diag.mjs`]],
+  ["test/keepalive.test.mjs", [`${out}/keepalive.mjs`]],
   ["test/feedback.test.mjs", []],
   ["test/site.test.mjs", []],
 ];

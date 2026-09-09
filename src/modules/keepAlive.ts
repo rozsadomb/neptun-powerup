@@ -69,7 +69,8 @@ let lastTickAt = 0;
 let lastVisibility = "";
 let ticking = false;
 
-async function tick(): Promise<void> {
+/** One keep-alive cycle. Exported for tests. */
+export async function tick(): Promise<void> {
   if (ticking) {
     return; // a slow cycle must not overlap the next one
   }
@@ -81,7 +82,9 @@ async function tick(): Promise<void> {
       if (gap > SLEPT_TICK_MS) {
         diag(`tick ${fmtDuration(gap)} késéssel futott — a fül valószínűleg ALUDT (fül: ${document.visibilityState})`);
       } else if (gap > LATE_TICK_MS) {
-        diag(`tick ${fmtDuration(gap)} késéssel futott — háttérben fojtva (fül: ${document.visibilityState})`);
+        // Once a minute for hours in a hidden tab, and it says nothing new
+        // after the first one: the dump sheds these lines first.
+        diag(`tick ${fmtDuration(gap)} késéssel futott — háttérben fojtva (fül: ${document.visibilityState})`, "noise");
       }
     }
     lastTickAt = now;
@@ -96,7 +99,15 @@ async function tick(): Promise<void> {
     }
     const expiration = getTokenExpiration(token);
     if (!expiration || expiration.getTime() - now < REFRESH_MARGIN_MS) {
-      const timeout = await refreshTokens();
+      let timeout: number | null = null;
+      try {
+        timeout = await refreshTokens();
+      } catch (error) {
+        // A network failure is already in the diagnostic log (doRefresh). The
+        // tick survives it — the next one retries — and must neither end as
+        // an unhandled rejection nor skip the nudge below.
+        log("session refresh failed, the next tick retries", error);
+      }
       if (timeout !== null) {
         lastRefresh = new Date();
         log(`session refreshed, next window: ${timeout} minutes`);
@@ -117,7 +128,7 @@ async function activityPing(): Promise<void> {
   }
   try {
     await api<unknown>("UserInfo");
-    diag("tevékenység-jelzés OK (UserInfo, csak olvasás)");
+    diag("tevékenység-jelzés OK (UserInfo, csak olvasás)", "routine");
   } catch (error) {
     diag(`tevékenység-jelzés HIBA: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -149,7 +160,7 @@ export const keepAlive: NpuModule = {
     // parameters), so the log shows when Neptun last spoke to the server.
     const unsubscribeStart = onApiStart(info => {
       if (info.path === "Account/GetNewTokens") {
-        diag("az app elküldte a frissítést");
+        diag("az app elküldte a frissítést", "routine");
       }
     });
     const unsubscribe = onApiCall(call => {
@@ -158,12 +169,12 @@ export const keepAlive: NpuModule = {
         const ok = call.status >= 200 && call.status < 300;
         if (ok) {
           lastRefresh = new Date();
-          diag(`az app frissített: HTTP ${call.status}`);
+          diag(`az app frissített: HTTP ${call.status}`, "routine");
           // The new token lands in sessionStorage ~1 s later; log its expiry then.
           window.setTimeout(() => {
             const current = getAccessToken();
             const exp = current ? getTokenExpiration(current) : null;
-            diag(`az új token ${exp ? hhmmss(exp.getTime()) + "-kor jár le" : "nem olvasható"}`);
+            diag(`az új token ${exp ? hhmmss(exp.getTime()) + "-kor jár le" : "nem olvasható"}`, exp ? "routine" : "essential");
           }, 1_500);
           document.dispatchEvent(new CustomEvent("npu:session-refreshed"));
         } else {
@@ -176,7 +187,8 @@ export const keepAlive: NpuModule = {
           diag(`az app frissítése ELUTASÍTVA: HTTP ${call.status}${body ? ` — a szerver üzenete: ${body}` : ""}`);
         }
       } else {
-        diag(`app → ${call.path} ${call.status}`);
+        const ok = call.status >= 200 && call.status < 300;
+        diag(`app → ${call.path} ${call.status}`, ok ? "routine" : "essential");
       }
     });
 

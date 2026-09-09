@@ -358,11 +358,12 @@ async function refreshViaApp(token: string): Promise<AppRefreshResult> {
         // shadowed visibilityState does not cross into the page's own world
         // under a userscript manager. Nobody is clicking in a hidden tab, so
         // the app's interceptor is not going to refresh either: go direct.
-        diag("rejtett fül: az app nem kérhető meg, a frissítés közvetlenül megy");
+        // Every third minute for hours in a hidden tab: noise for the dump.
+        diag("rejtett fül: az app nem kérhető meg, a frissítés közvetlenül megy", "noise");
         handedOver = true;
         return { handled: false, timeout: null, handedOver: mark };
       }
-      diag(`frissítés kérése az app saját mechanizmusán át`);
+      diag(`frissítés kérése az app saját mechanizmusán át`, "routine");
       const stored = sessionStorage.getItem(SESSION_EXP_KEY_APP);
       // The app's idle check reads this value synchronously inside the event
       // handler; it is put back immediately afterwards.
@@ -462,9 +463,12 @@ async function doRefresh(inherited?: number): Promise<number | null> {
     // dies with the tab, a tab closed mid-refresh still lets the lock expire.
     renew = window.setInterval(takeLock, LOCK_TTL_MS / 2);
     const expBefore = getTokenExpiration(token);
+    // A wait for NPU's own requests is worth keeping (the Debrecen logs turned
+    // on exactly such coincidences); a plain start is routine.
     diag(
       `frissítés indul (a token ${expBefore ? hhmmss(expBefore.getTime()) + "-kor jár le" : "lejárata ismeretlen"})` +
-        (quietWait >= 300 ? ` — ${fmtDuration(quietWait)} várt a saját kérések befejeződésére` : "")
+        (quietWait >= 300 ? ` — ${fmtDuration(quietWait)} várt a saját kérések befejeződésére` : ""),
+      quietWait >= 300 ? "essential" : "routine"
     );
     const abort = new AbortController();
     const abortTimer = window.setTimeout(() => abort.abort(), OWN_REFRESH_TIMEOUT_MS);
@@ -485,7 +489,12 @@ async function doRefresh(inherited?: number): Promise<number | null> {
         signal: abort.signal,
       });
     } catch (error) {
-      diag(`frissítés HÁLÓZATI HIBA: ${error instanceof Error ? error.message : String(error)}`);
+      // Self-contained on purpose: the routine "indul" line before it may be
+      // dropped from a long dump, so the token's expiry is repeated here.
+      diag(
+        `frissítés HÁLÓZATI HIBA: ${error instanceof Error ? error.message : String(error)} — a token ` +
+          `${expBefore ? hhmmss(expBefore.getTime()) + "-kor jár le" : "lejárata ismeretlen"}, a következő ciklus újrapróbálja`
+      );
       throw error;
     } finally {
       window.clearTimeout(abortTimer);
@@ -527,7 +536,8 @@ async function doRefresh(inherited?: number): Promise<number | null> {
     sessionStorage.setItem(SESSION_EXP_KEY, sessionExp.toISOString());
     diag(
       `frissítés OK — új token ${tokenExp ? hhmmss(tokenExp.getTime()) : "?"}-kor jár le; ` +
-        `a szerver ${result.sessionTimeoutInMinutes} perces munkamenetet jelez (→ ${hhmmss(sessionExp.getTime())})${skew}`
+        `a szerver ${result.sessionTimeoutInMinutes} perces munkamenetet jelez (→ ${hhmmss(sessionExp.getTime())})${skew}`,
+      "routine"
     );
     return result.sessionTimeoutInMinutes;
   } finally {
@@ -653,7 +663,7 @@ async function gatedFetch(path: string, call: () => Promise<Response>): Promise<
   const release = beginRequest();
   try {
     const response = await call();
-    diag(`npu → ${shortPath} ${response.status}`);
+    diag(`npu → ${shortPath} ${response.status}`, response.ok ? "routine" : "essential");
     return response;
   } catch (error) {
     diag(`npu → ${shortPath} HÁLÓZATI HIBA: ${error instanceof Error ? error.message : String(error)}`);

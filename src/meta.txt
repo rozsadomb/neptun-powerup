@@ -9,7 +9,7 @@
 // @updateURL      https://neptun-powerup.com/npu.user.js
 // Hol induljon el a szkript.
 //
-// 22 magyar intézmény új Neptun-felületét végigmérve a cím és az útvonal is
+// 23 magyar intézmény új Neptun-felületét végigmérve a cím és az útvonal is
 // intézményenként más: az app gyökere lehet /hallgato, /hallgato_ng,
 // /hallgatoi, /hallgato2_uj, /Hallgato_NG, /ujhallgato vagy akár /momehw —
 // és a gép sem mindig a "neptun.*" portál (pl. hallgato.uni-mate.hu,

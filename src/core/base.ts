@@ -1,9 +1,10 @@
 // Where the student app is mounted, and whether this is Neptun at all.
 //
-// Do not assume a path. Measured across 22 Hungarian institutions running the
-// new interface, the app root is one of at least seven different things:
+// Do not assume a path. Measured across 23 Hungarian institutions running the
+// new interface (22 surveyed, NJE confirmed from a user's log), the app root is
+// one of at least seven different things:
 //
-//   /hallgato      (10×)   /hallgato_ng   (5×)   /hallgatoi   (1×, BME only)
+//   /hallgato      (12×)   /hallgato_ng   (5×)   /hallgatoi   (1×, BME only)
 //   /hallgato2_uj  (1×)    /Hallgato_NG   (1×)   /ujhallgato  (1×)
 //   /momehw, /bhfhw        (SDA-hosted: no "hallgato" in the path at all)
 //
@@ -50,7 +51,7 @@ export const API_BASE = `${APP_BASE}/api/`;
  * True when this document is the Neptun student app.
  *
  * Checked against the HTML the server sends, before Angular boots: every one
- * of the 22 installs surveyed serves <app-root> and the title "Neptun Web".
+ * of the 23 installs surveyed serves <app-root> and the title "Neptun Web".
  * The <neptun-*> elements only exist after bootstrap, so they cannot be relied
  * on at startup — they are kept only as a late fallback.
  */

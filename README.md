@@ -35,7 +35,7 @@ Minden funkció külön ki- és bekapcsolható a jobb alsó jelvény ⚙ gombjá
 
 ## Melyik egyetemen működik?
 
-**22 magyar intézmény** Neptunját ellenőriztem: mindegyiken elindul és felismeri a felületet — BME, Debrecen, Szeged, Miskolc, Óbudai, Pannon, Semmelweis, MATE, NKE, PPKE, Károli, Széchenyi, Metropolitan, MOME, Nyíregyháza és mások.
+**23 magyar intézmény** Neptunját ellenőriztem: mindegyiken elindul és felismeri a felületet — BME, Debrecen, Szeged, Miskolc, Óbudai, Pannon, Semmelweis, MATE, NKE, PPKE, Károli, Széchenyi, Metropolitan, MOME, Nyíregyháza, Neumann János és mások.
 
 A **funkciókat** végig eddig a BME-n teszteltem, máshol eltérés előfordulhat. Ha kipróbálod, [írd meg, mit tapasztaltál](https://neptun-powerup.com/visszajelzes) — ez a leghasznosabb, amivel segíthetsz.
 
