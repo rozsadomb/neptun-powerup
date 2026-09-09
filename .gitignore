@@ -1,3 +1,5 @@
+# perjel nélkül is, hogy egy symlink se kerülhessen be
+node_modules
 node_modules/
 dist/
 site/npu.user.js

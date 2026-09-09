@@ -4,12 +4,14 @@
 //   GET    /api/admin/reports         — lista, szöveg nélkül (Authorization: Bearer <ADMIN_TOKEN>)
 //   GET    /api/admin/reports/<szám>  — egy bejelentés teljes egészében (szöveggel)
 //   DELETE /api/admin/reports/<szám>  — egy bejelentés törlése a privát tárolóból
+//   GET    /api/admin/installs?days=30 — a szkript letöltéseinek összesítése (installs.js)
 //
 // Az ADMIN_TOKEN Cloudflare Secret (DEPLOY.md 2b). Hosszú, véletlen érték legyen:
 // nincs külön korlátozás a próbálkozásokra, a token hossza a védelem.
 
 import { json } from "./http.js";
 import { listReports, getReport, deleteReport, feedbackTtlDays } from "./reports.js";
+import { handleInstallsApi } from "./installs.js";
 
 async function sha256(text) {
   return new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
@@ -36,6 +38,10 @@ export async function handleAdminApi(request, env, url) {
   }
   if (!(await tokenMatches(bearer(request), env.ADMIN_TOKEN))) {
     return json(401, { error: "Hibás vagy hiányzó token." });
+  }
+  // A letöltés-statisztikának nem kell a KV: a bejelentés-tároló nélkül is megy.
+  if (url.pathname === "/api/admin/installs") {
+    return handleInstallsApi(request, env, url);
   }
   if (!env.FEEDBACK) {
     return json(503, { error: "Nincs bekötve a FEEDBACK KV-tároló (lásd DEPLOY.md 2b)." });
@@ -79,7 +85,7 @@ const ADMIN_HTML = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Bejelentések, Neptun PowerUp! NG</title>
+<title>Admin, Neptun PowerUp! NG</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="/style.css">
 <style>
@@ -110,6 +116,18 @@ const ADMIN_HTML = `<!doctype html>
   tr.text td { padding-top: 0; }
   tr.text pre { margin: 0; padding: 14px 16px; white-space: pre-wrap; word-break: break-word; font: inherit; font-size: .9375rem; line-height: 1.55; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-input); }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .card select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--radius-input); padding: 6px 10px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
+  .stat { padding: 14px 16px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-input); }
+  .stat b { display: block; font-size: 1.75rem; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .stat span { display: block; margin-top: 4px; font-size: .8125rem; color: var(--muted); }
+  .stat--hero { background: color-mix(in srgb, var(--accent) 18%, var(--bg)); }
+  .breakdown { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 16px; }
+  .breakdown h3 { font-size: .8125rem; font-weight: 600; color: var(--muted); margin: 0 0 6px; }
+  .breakdown ul { list-style: none; margin: 0; padding: 0; font-size: .9375rem; }
+  .breakdown li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+  .breakdown li:last-child { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   @media (max-width: 860px) {
     thead { display: none; }
     table, tbody, tr, td { display: block; }
@@ -124,8 +142,8 @@ const ADMIN_HTML = `<!doctype html>
 </head>
 <body>
 <main class="admin">
-  <h1>Bejelentések</h1>
-  <p class="hint">A visszajelzés-űrlapról érkezett bejelentések privát másolata, a megadott email címekkel együtt. A nyilvános GitHub-issue-ba csak a szöveg kerül; ez a lista <span id="ttl">…</span> nap után magától ürül.</p>
+  <h1>Admin</h1>
+  <p class="hint">A szkript letöltéseinek számai, és a visszajelzés-űrlapról érkezett bejelentések privát másolata a megadott email címekkel. A nyilvános GitHub-issue-ba csak a szöveg kerül; a bejelentések <span id="ttl">…</span> nap után maguktól törlődnek.</p>
 
   <form class="card" id="login" hidden>
     <label for="token">Admin token</label>
@@ -137,6 +155,26 @@ const ADMIN_HTML = `<!doctype html>
   </form>
 
   <div id="status" class="form-status status" hidden></div>
+
+  <section class="card" id="installs" hidden aria-live="polite">
+    <div class="row toolbar">
+      <strong>Telepítések</strong>
+      <span class="row">
+        <label class="hint" for="days">Időszak</label>
+        <select id="days"><option value="7">7 nap</option><option value="30" selected>30 nap</option><option value="90">90 nap</option></select>
+      </span>
+    </div>
+    <p class="hint" id="installsNote" hidden></p>
+    <div class="stats" id="stats" hidden></div>
+    <div class="tablewrap" id="dailyWrap" hidden>
+      <table>
+        <thead><tr><th>Nap</th><th class="num">Ellenőrzés</th><th class="num">Letöltés</th><th class="num">Telepítés-kattintás</th></tr></thead>
+        <tbody id="dailyRows"></tbody>
+      </table>
+    </div>
+    <div class="breakdown" id="breakdown" hidden></div>
+    <p class="hint" style="margin-top:14px">A szkript letöltéseiből számolva, IP-cím és süti nélkül. <b>Ellenőrzés:</b> a Tampermonkey napi frissítés-ellenőrzése, naponta kb. egy minden telepítésről, ezért a tegnapi érték az aktív telepítések becslése. <b>Letöltés:</b> a teljes fájl (új telepítés, vagy frissítés kiadás után). <b>Telepítés-kattintás:</b> a telepítés gomb megnyitása.</p>
+  </section>
 
   <section class="card" id="panel" hidden aria-live="polite">
     <div class="row toolbar">
@@ -249,16 +287,85 @@ const ADMIN_HTML = `<!doctype html>
     });
   }
 
+  // ---- telepítések ----
+  var installs = document.getElementById("installs");
+  var installsNote = document.getElementById("installsNote");
+  var stats = document.getElementById("stats");
+  var dailyWrap = document.getElementById("dailyWrap");
+  var dailyRows = document.getElementById("dailyRows");
+  var breakdown = document.getElementById("breakdown");
+  var daysSelect = document.getElementById("days");
+  var nf = new Intl.NumberFormat("hu-HU");
+
+  function stat(value, label, hero) {
+    var d = el("div", { class: "stat" + (hero ? " stat--hero" : "") });
+    d.appendChild(el("b", null, nf.format(value)));
+    d.appendChild(el("span", null, label));
+    return d;
+  }
+  function list(title, items) {
+    var box = el("div");
+    box.appendChild(el("h3", null, title));
+    var ul = el("ul");
+    if (!items.length) ul.appendChild(el("li", null, "nincs adat"));
+    items.forEach(function (it) {
+      var li = el("li");
+      li.appendChild(el("span", null, it.name));
+      li.appendChild(el("span", null, nf.format(it.n)));
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    return box;
+  }
+  function renderInstalls(d) {
+    installsNote.hidden = true;
+    stats.textContent = "";
+    stats.appendChild(stat(d.yesterday.check + d.yesterday.download, "aktív telepítés, becslés (tegnapi háttérkérések)", true));
+    stats.appendChild(stat(d.totals.install, "telepítés-kattintás, " + d.days + " nap"));
+    stats.appendChild(stat(d.totals.download, "teljes letöltés, " + d.days + " nap"));
+    stats.appendChild(stat(d.totals.check, "ellenőrzés, " + d.days + " nap"));
+    stats.hidden = false;
+    dailyRows.textContent = "";
+    d.daily.slice().reverse().slice(0, 14).forEach(function (row) {
+      var tr = el("tr");
+      tr.appendChild(el("td", { "data-l": "Nap" }, row.day === d.today.day ? row.day + " (ma, csonka)" : row.day));
+      tr.appendChild(el("td", { class: "num", "data-l": "Ellenőrzés" }, nf.format(row.check)));
+      tr.appendChild(el("td", { class: "num", "data-l": "Letöltés" }, nf.format(row.download)));
+      tr.appendChild(el("td", { class: "num", "data-l": "Telepítés-kattintás" }, nf.format(row.install)));
+      dailyRows.appendChild(tr);
+    });
+    dailyWrap.hidden = d.daily.length === 0;
+    breakdown.textContent = "";
+    breakdown.appendChild(list("Böngésző (háttérkérések)", d.browsers));
+    breakdown.appendChild(list("Ország (háttérkérések)", d.countries));
+    breakdown.hidden = false;
+  }
+  function loadInstalls() {
+    installs.hidden = false;
+    api("GET", "/api/admin/installs?days=" + encodeURIComponent(daysSelect.value)).then(function (r) {
+      if (r.status === 200) { renderInstalls(r.data); return; }
+      stats.hidden = true; dailyWrap.hidden = true; breakdown.hidden = true;
+      installsNote.hidden = false;
+      installsNote.textContent = r.data.error || ("Hiba: " + r.status);
+    }).catch(function () {
+      installsNote.hidden = false; installsNote.textContent = "Hálózati hiba.";
+    });
+  }
+  daysSelect.addEventListener("change", loadInstalls);
+
   function load() {
-    if (!getToken()) { panel.hidden = true; login.hidden = false; return; }
+    if (!getToken()) { panel.hidden = true; installs.hidden = true; login.hidden = false; return; }
     hideStatus();
     api("GET", "/api/admin/reports").then(function (r) {
-      if (r.status === 200) {
-        login.hidden = true; panel.hidden = false;
-        render(r.data.items || [], r.data.ttlDays);
+      if (r.status === 200 || r.status === 503) {
+        // 503: a KV nincs bekötve, de a token jó — a telepítés-blokk ettől még megy.
+        login.hidden = true;
+        loadInstalls();
+        if (r.status === 200) { panel.hidden = false; render(r.data.items || [], r.data.ttlDays); }
+        else { panel.hidden = true; show("err", r.data.error || "A bejelentés-tároló nincs bekötve."); }
         return;
       }
-      panel.hidden = true; login.hidden = false;
+      panel.hidden = true; installs.hidden = true; login.hidden = false;
       if (r.status === 401) setToken("");
       show("err", r.data.error || ("Hiba: " + r.status));
     }).catch(function () { show("err", "Hálózati hiba."); });
@@ -272,7 +379,7 @@ const ADMIN_HTML = `<!doctype html>
   });
   document.getElementById("refresh").addEventListener("click", load);
   document.getElementById("logout").addEventListener("click", function () {
-    setToken(""); rows.textContent = ""; panel.hidden = true; login.hidden = false; hideStatus();
+    setToken(""); rows.textContent = ""; panel.hidden = true; installs.hidden = true; login.hidden = false; hideStatus();
   });
   load();
 })();

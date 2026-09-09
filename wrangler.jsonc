@@ -13,7 +13,8 @@
     "directory": "./site",
     "binding": "ASSETS",
     // Az /admin a karbantartó privát oldala: a Worker adja, nem statikus fájl.
-    "run_worker_first": ["/api/*", "/admin"],
+    // A /npu.user.js-en a Worker csak számol (worker/installs.js), és az assetet adja.
+    "run_worker_first": ["/api/*", "/admin", "/npu.user.js"],
     "not_found_handling": "404-page"
   },
   // A repo neve nem titok, ezért itt a helye: így egyedül a GITHUB_TOKEN-t
@@ -28,6 +29,11 @@
   // A névtér id-je nem titok. Helyi fejlesztésnél (wrangler dev) a KV a gépeden
   // él, nem az élesben; az élesbe csak a deploy köt. Lásd DEPLOY.md 2b.
   "kv_namespaces": [{ "binding": "FEEDBACK", "id": "0e60eccec3b84b13825d4ed9dcb402c8" }],
+  // A szkript letöltéseinek számlálója (nap, fajta, böngésző-család, ország; IP
+  // nélkül). Az adathalmaz az első íráskor magától létrejön. Az admin oldal a
+  // Cloudflare SQL API-n kérdezi le, ehhez a CF_ACCOUNT_ID és CF_ANALYTICS_TOKEN
+  // secret kell. Lásd DEPLOY.md 2c.
+  "analytics_engine_datasets": [{ "binding": "INSTALLS", "dataset": "npu_installs" }],
   "observability": {
     "enabled": true
   }

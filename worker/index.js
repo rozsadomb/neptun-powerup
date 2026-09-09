@@ -2,14 +2,21 @@ import { json } from "./http.js";
 import { handleFeedback } from "./feedback.js";
 import { handleAdminApi, adminPage } from "./admin.js";
 import { feedbackTtlDays } from "./reports.js";
+import { handleScriptDownload, installStatsConfigured, installQueryConfigured } from "./installs.js";
 
 // A weboldalt a Workers static assets szolgálja ki; ez a Worker a
-// wrangler.jsonc run_worker_first beállítása miatt kizárólag az /api/* és az
-// /admin útvonalakon fut le, minden más kérés közvetlenül az assetekhez megy.
+// wrangler.jsonc run_worker_first beállítása miatt kizárólag az /api/*, az
+// /admin és a /npu.user.js útvonalakon fut le (az utóbbin csak számol, lásd
+// installs.js), minden más kérés közvetlenül az assetekhez megy.
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // A szkript letöltése: számlálás, aztán az asset változatlanul.
+    if (url.pathname === "/npu.user.js") {
+      return handleScriptDownload(request, env);
+    }
 
     // Üzemeltetési önellenőrzés: megmondja, mi van beállítva, de értéket soha
     // nem ad vissza (a repo neve amúgy is publikus).
@@ -22,6 +29,8 @@ export default {
         feedbackStoreConfigured: Boolean(env.FEEDBACK),
         adminTokenConfigured: Boolean(env.ADMIN_TOKEN),
         feedbackTtlDays: feedbackTtlDays(env),
+        installStatsConfigured: installStatsConfigured(env),
+        installQueryConfigured: installQueryConfigured(env),
       });
     }
 

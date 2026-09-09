@@ -108,6 +108,46 @@ A megőrzési időt a `wrangler.jsonc` `FEEDBACK_TTL_DAYS` értéke szabja meg; 
 kiszerkeszteni, és az issue „edited” előzményéből is törölni (a szerkesztési előzmény
 mellett a három pont → *Delete*), különben ott továbbra is látható marad.
 
+## 2c. Telepítés-számláló az admin oldalon (Analytics Engine)
+
+A `/npu.user.js` letöltései a Workeren mennek át (`run_worker_first`), és a Worker
+minden letöltésről egy adatpontot ír a Workers Analytics Engine-be: nap, fajta
+(telepítés-kattintás / napi frissítés-ellenőrzés / teljes letöltés), böngésző-család,
+ország. IP-címet, sütit nem tárol. Az admin oldal **Telepítések** blokkja innen
+számol: a tegnapi háttérkérések száma az aktív telepítések becslése, mert a
+Tampermonkey naponta kb. egyszer ellenőrzi a frissítést minden telepítésről.
+
+A kötés a `wrangler.jsonc`-ben van (`INSTALLS` → `npu_installs`), az adathalmaz az
+első íráskor magától létrejön; a deploy után a számlálás már megy. A lekérdezéshez
+a Cloudflare SQL API-ja kell, ehhez két secret:
+
+1. **API-token.** Cloudflare → profil (jobb felül) → **API Tokens** → **Create Token** →
+   **Create Custom Token**: *Permissions* → **Account** · **Account Analytics** · **Read**,
+   *Account Resources* → a saját fiók. Más jog nem kell.
+2. **Account ID.** A dashboard bármelyik Worker-oldalán jobb oldalt, vagy:
+
+   ```bash
+   npx wrangler whoami
+   ```
+
+3. Mindkettő secretként (a kérdésre az értéket kell beírni):
+
+   ```bash
+   npx wrangler secret put CF_ANALYTICS_TOKEN
+   ```
+
+   ```bash
+   npx wrangler secret put CF_ACCOUNT_ID
+   ```
+
+4. A **/api/health** mutatja: `installStatsConfigured: true` (kötés) és
+   `installQueryConfigured: true` (secretek). A **/admin** oldalon ezután megjelenik a
+   blokk; amíg a secretek hiányoznak, a blokk ezt írja ki, minden más megy tovább.
+
+Az Analytics Engine az ingyenes csomagban is elérhető (napi százezres nagyságrendű
+adatpont belefér), az adatot kb. három hónapig őrzi, ezért az admin oldal legfeljebb
+90 napot mutat.
+
 ## 3. Saját domain — `neptun-powerup.com`
 
 A projekt címe **https://neptun-powerup.com**; a script fejléce (`src/meta.txt`) és a

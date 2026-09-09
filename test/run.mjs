@@ -50,6 +50,7 @@ const suites = [
   ["test/diag.test.mjs", [`${out}/diag.mjs`]],
   ["test/keepalive.test.mjs", [`${out}/keepalive.mjs`]],
   ["test/feedback.test.mjs", []],
+  ["test/installs.test.mjs", []],
   ["test/site.test.mjs", []],
 ];
 let failed = 0;
