@@ -4,7 +4,7 @@
 //   GET    /api/admin/reports         — lista, szöveg nélkül (Authorization: Bearer <ADMIN_TOKEN>)
 //   GET    /api/admin/reports/<szám>  — egy bejelentés teljes egészében (szöveggel)
 //   DELETE /api/admin/reports/<szám>  — egy bejelentés törlése a privát tárolóból
-//   GET    /api/admin/installs?days=30 — a szkript letöltéseinek összesítése (installs.js)
+//   GET    /api/admin/installs?days=30 — a szkript letöltéseinek összesítése (installs.js; days: 1, 3, 7, 30 vagy 90)
 //
 // Az ADMIN_TOKEN Cloudflare Secret (DEPLOY.md 2b). Hosszú, véletlen érték legyen:
 // nincs külön korlátozás a próbálkozásokra, a token hossza a védelem.
@@ -161,7 +161,7 @@ const ADMIN_HTML = `<!doctype html>
       <strong>Telepítések</strong>
       <span class="row">
         <label class="hint" for="days">Időszak</label>
-        <select id="days"><option value="7">7 nap</option><option value="30" selected>30 nap</option><option value="90">90 nap</option></select>
+        <select id="days"><option value="1">24 óra</option><option value="3">3 nap</option><option value="7">7 nap</option><option value="30" selected>30 nap</option><option value="90">90 nap</option></select>
       </span>
     </div>
     <p class="hint" id="installsNote" hidden></p>
@@ -317,18 +317,28 @@ const ADMIN_HTML = `<!doctype html>
     box.appendChild(ul);
     return box;
   }
+  // Az időszak szövege a számokhoz: az 1 nap a lekérdezésben gördülő 24 óra.
+  function period(days) { return days === 1 ? "24 óra" : days + " nap"; }
   function renderInstalls(d) {
     installsNote.hidden = true;
     stats.textContent = "";
-    stats.appendChild(stat(d.yesterday.check + d.yesterday.download, "aktív telepítés, becslés (tegnapi háttérkérések)", true));
-    stats.appendChild(stat(d.totals.install, "telepítés-kattintás, " + d.days + " nap"));
-    stats.appendChild(stat(d.totals.download, "teljes letöltés, " + d.days + " nap"));
-    stats.appendChild(stat(d.totals.check, "ellenőrzés, " + d.days + " nap"));
+    // Az aktív telepítések becslése: naponta kb. egy háttérkérés telepítésenként.
+    // Hosszabb időszaknál a tegnapi (teljes) nap a mérce; a 24 órás ablakban a
+    // tegnap csak részben van benne, ott maga az ablak a teljes nap.
+    if (d.days === 1) {
+      stats.appendChild(stat(d.totals.check + d.totals.download, "aktív telepítés, becslés (az elmúlt 24 óra háttérkérései)", true));
+    } else {
+      stats.appendChild(stat(d.yesterday.check + d.yesterday.download, "aktív telepítés, becslés (tegnapi háttérkérések)", true));
+    }
+    stats.appendChild(stat(d.totals.install, "telepítés-kattintás, " + period(d.days)));
+    stats.appendChild(stat(d.totals.download, "teljes letöltés, " + period(d.days)));
+    stats.appendChild(stat(d.totals.check, "ellenőrzés, " + period(d.days)));
     stats.hidden = false;
     dailyRows.textContent = "";
     d.daily.slice().reverse().slice(0, 14).forEach(function (row) {
       var tr = el("tr");
-      tr.appendChild(el("td", { "data-l": "Nap" }, row.day === d.today.day ? row.day + " (ma, csonka)" : row.day));
+      var dayLabel = row.day === d.today.day ? row.day + " (ma, csonka)" : d.days === 1 && row.day === d.yesterday.day ? row.day + " (tegnap, csak az ablakba eső rész)" : row.day;
+      tr.appendChild(el("td", { "data-l": "Nap" }, dayLabel));
       tr.appendChild(el("td", { class: "num", "data-l": "Ellenőrzés" }, nf.format(row.check)));
       tr.appendChild(el("td", { class: "num", "data-l": "Letöltés" }, nf.format(row.download)));
       tr.appendChild(el("td", { class: "num", "data-l": "Telepítés-kattintás" }, nf.format(row.install)));
