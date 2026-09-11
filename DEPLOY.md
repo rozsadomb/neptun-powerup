@@ -113,9 +113,16 @@ mellett a három pont → *Delete*), különben ott továbbra is látható marad
 A `/npu.user.js` letöltései a Workeren mennek át (`run_worker_first`), és a Worker
 minden letöltésről egy adatpontot ír a Workers Analytics Engine-be: nap, fajta
 (telepítés-kattintás / napi frissítés-ellenőrzés / teljes letöltés), böngésző-család,
-ország. IP-címet, sütit nem tárol. Az admin oldal **Telepítések** blokkja innen
-számol: a tegnapi háttérkérések száma az aktív telepítések becslése, mert a
-Tampermonkey naponta kb. egyszer ellenőrzi a frissítést minden telepítésről.
+ország, a válasz státusza. IP-címet, sütit nem tárol. Az admin oldal **Telepítések**
+blokkja innen számol: a tegnapi háttérkérések száma az aktív telepítések becslése,
+mert a Tampermonkey naponta kb. egyszer ellenőrzi a frissítést minden telepítésről.
+
+A frissítés-ellenőrzést a Worker az `Accept: text/x-userscript-meta` fejlécről ismeri
+fel (ezt küldi a Tampermonkey, a Violentmonkey és a Greasemonkey az `@updateURL`-re),
+és arra csak a szkript fejlécblokkját adja vissza, ahogy a GreasyFork és az OpenUserJS:
+az `@version` ott van, a teljes fájl csak telepítéskor és tényleges frissítéskor megy.
+2026-09-11 előtt a számláló Range-fejlécet figyelt, amit a Tampermonkey nem küld, ezért
+az addigi napokon az ellenőrzések a „letöltés” oszlopban vannak.
 
 A kötés a `wrangler.jsonc`-ben van (`INSTALLS` → `npu_installs`), az adathalmaz az
 első íráskor magától létrejön; a deploy után a számlálás már megy. A lekérdezéshez

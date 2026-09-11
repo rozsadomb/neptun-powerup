@@ -173,7 +173,7 @@ const ADMIN_HTML = `<!doctype html>
       </table>
     </div>
     <div class="breakdown" id="breakdown" hidden></div>
-    <p class="hint" style="margin-top:14px">A szkript letöltéseiből számolva, IP-cím és süti nélkül. <b>Ellenőrzés:</b> a Tampermonkey napi frissítés-ellenőrzése, naponta kb. egy minden telepítésről, ezért a tegnapi érték az aktív telepítések becslése. <b>Letöltés:</b> a teljes fájl (új telepítés, vagy frissítés kiadás után). <b>Telepítés-kattintás:</b> a telepítés gomb megnyitása.</p>
+    <p class="hint" style="margin-top:14px">A szkript letöltéseiből számolva, IP-cím és süti nélkül. <b>Ellenőrzés:</b> a userscript-kezelő (Tampermonkey, Violentmonkey) napi frissítés-ellenőrzése, naponta kb. egy minden telepítésről, ezért a tegnapi érték az aktív telepítések becslése. <b>Letöltés:</b> a teljes fájl (új telepítés, vagy frissítés kiadás után). <b>Telepítés-kattintás:</b> a telepítés gomb megnyitása. 2026-09-11 előtt az ellenőrzések a Letöltés oszlopban vannak: a számláló addig egy Range-fejlécet figyelt, amit a Tampermonkey nem küld.</p>
   </section>
 
   <section class="card" id="panel" hidden aria-live="polite">

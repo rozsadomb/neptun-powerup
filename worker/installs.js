@@ -2,27 +2,40 @@
 //
 // A /npu.user.js a wrangler.jsonc run_worker_first listája miatt a Worker elé
 // kerül: ez a modul számol egyet a Workers Analytics Engine-be, majd az assetet
-// változatlanul visszaadja. A felhasználónak semmi nem változik.
+// adja vissza. A felhasználónak semmi nem változik — egy kivétellel: a
+// frissítés-ellenőrzésre a teljes fájl helyett csak a fejlécblokk megy (lásd lent).
 //
 // Mit tárol egy letöltésről: a fajtáját (lásd lent), a böngésző családját, az
-// országot (a Cloudflare adja a kéréshez) és hogy Range-kérés volt-e. IP-címet,
-// sütit, felhasználói azonosítót NEM tárol, ezért két letöltést nem tud
-// ugyanahhoz a géphez kötni; az „aktív telepítések” száma becslés.
+// országot (a Cloudflare adja a kéréshez), a kérés alakját (fejléc vagy teljes
+// fájl) és a válasz státuszát. IP-címet, sütit, felhasználói azonosítót NEM
+// tárol, ezért két letöltést nem tud ugyanahhoz a géphez kötni; az „aktív
+// telepítések” száma becslés.
 //
 // Fajták:
 //   install  — navigációs kérés: valaki rákattintott a telepítés gombra
 //              (a Tampermonkey ezután a háttérben maga is letölti a fájlt)
-//   check    — háttérkérés Range fejléccel: a Tampermonkey napi frissítés-
-//              ellenőrzése, ami csak a fejlécet nézné (naponta kb. egy per
-//              telepítés, ezért ez az aktív telepítések legjobb közelítése)
-//   download — háttérkérés a teljes fájlért: telepítéskor, vagy amikor az
-//              ellenőrzés új verziót talált
+//   check    — frissítés-ellenőrzés: a userscript-kezelők (Tampermonkey a
+//              3.7.3900 óta, Violentmonkey, Greasemonkey) az @updateURL-t
+//              `Accept: text/x-userscript-meta` fejléccel kérik le, naponta
+//              kb. egyszer telepítésenként — ezért ez az aktív telepítések
+//              legjobb közelítése. Az ilyen kérésre csak a fejlécblokk megy
+//              vissza (ahogy a GreasyFork és az OpenUserJS is teszi): az
+//              @version ott van, a 150 KB kód nem kell hozzá. Ha a kezelő
+//              újabb verziót lát, a @downloadURL-ről kéri a teljes fájlt.
+//   download — minden más háttérkérés a teljes fájlért: telepítéskor, vagy
+//              amikor az ellenőrzés új verziót talált.
+//
+// 2026-09-11 előtt a "check" a Range-fejléces kérés volt — ilyet a Tampermonkey
+// nem küld, ezért az addigi napokon az ellenőrzések a "download" oszlopban vannak.
 
 import { json } from "./http.js";
 
 export const DATASET = "npu_installs";
+export const META_TYPE = "text/x-userscript-meta";
 const MAX_DAYS = 90;
 const DEFAULT_DAYS = 30;
+const META_START = "// ==UserScript==";
+const META_END = "// ==/UserScript==";
 
 export function browserFamily(userAgent) {
   const ua = String(userAgent ?? "");
@@ -34,41 +47,92 @@ export function browserFamily(userAgent) {
   return "egyéb";
 }
 
+/** Frissítés-ellenőrzés: az Accept fejlécben (bárhol, súly nélkül is) ott a meta-típus. */
+export function wantsMeta(request) {
+  const accept = request.headers.get("Accept") ?? "";
+  return accept.split(",").some((part) => part.trim().split(";")[0].trim().toLowerCase() === META_TYPE);
+}
+
 export function classify(request) {
   const h = request.headers;
   const mode = h.get("Sec-Fetch-Mode");
   const dest = h.get("Sec-Fetch-Dest");
   const accept = h.get("Accept") ?? "";
-  const range = h.has("Range");
+  const meta = wantsMeta(request);
   // Navigáció: a böngésző oldalként nyitja meg (a telepítés gomb). Régi
   // böngésző Sec-Fetch fejlécek nélkül: az Accept árulja el, hogy oldalt kér.
   const navigate = mode === "navigate" || dest === "document" || (mode === null && dest === null && accept.includes("text/html"));
-  const kind = navigate ? "install" : range ? "check" : "download";
+  const kind = navigate ? "install" : meta ? "check" : "download";
   return {
     kind,
-    range,
+    meta,
     browser: browserFamily(h.get("User-Agent")),
     country: String(request.cf?.country ?? "?"),
   };
 }
 
-export function dataPoint({ kind, browser, country, range }) {
+export function dataPoint({ kind, browser, country, meta, status }) {
   return {
     indexes: [kind],
-    blobs: [kind, browser, country, range ? "range" : "full"],
+    blobs: [kind, browser, country, meta ? "meta" : "full", String(status ?? "")],
     doubles: [1],
   };
 }
 
+/** A userscript fejlécblokkja a forrásból (záró sorral együtt); null, ha nincs. */
+export function metaBlock(source) {
+  const start = source.indexOf(META_START);
+  const end = start === -1 ? -1 : source.indexOf(META_END, start);
+  return start === -1 || end === -1 ? null : source.slice(start, end + META_END.length) + "\n";
+}
+
+// A frissítés-ellenőrzés válasza: csak a fejlécblokk, saját ETag-gel, hogy a
+// böngésző-cache 304-gyel is beérje. A Vary: Accept választja el a teljes fájl
+// cache-bejegyzésétől (ugyanaz az URL).
+async function metaResponse(request, env) {
+  const full = await env.ASSETS.fetch(new Request(request.url, { method: "GET" }));
+  if (!full.ok) return full;
+  const meta = metaBlock(await full.text());
+  if (meta === null) return withVary(await env.ASSETS.fetch(request));
+  const assetTag = (full.headers.get("ETag") ?? "").replace(/^W\//, "").replace(/"/g, "");
+  const etag = assetTag ? `W/"meta-${assetTag}"` : null;
+  const headers = { "Cache-Control": "public, max-age=0, must-revalidate", Vary: "Accept" };
+  if (etag) headers.ETag = etag;
+  if (etag && request.headers.get("If-None-Match") === etag) {
+    return new Response(null, { status: 304, headers });
+  }
+  headers["Content-Type"] = `${META_TYPE}; charset=utf-8`;
+  return new Response(request.method === "HEAD" ? null : meta, { status: 200, headers });
+}
+
+function withVary(response) {
+  const copy = new Response(response.body, response);
+  copy.headers.set("Vary", "Accept");
+  return copy;
+}
+
 export async function handleScriptDownload(request, env) {
-  if (env.INSTALLS && (request.method === "GET" || request.method === "HEAD")) {
+  const info = classify(request);
+  const readOnly = request.method === "GET" || request.method === "HEAD";
+  let response;
+  if (info.kind === "check" && readOnly) {
     try {
-      env.INSTALLS.writeDataPoint(dataPoint(classify(request)));
+      response = await metaResponse(request, env);
+    } catch {
+      // A fejlécblokk-válasz sosem állhat a frissítés útjába: jöjjön a teljes fájl.
+      response = withVary(await env.ASSETS.fetch(request));
+    }
+  } else {
+    response = withVary(await env.ASSETS.fetch(request));
+  }
+  if (env.INSTALLS && readOnly) {
+    try {
+      env.INSTALLS.writeDataPoint(dataPoint({ ...info, status: response.status }));
     } catch {
       // A számlálás sosem állhat a letöltés útjába.
     }
   }
-  return env.ASSETS.fetch(request);
+  return response;
 }
 
 export function installStatsConfigured(env) {
