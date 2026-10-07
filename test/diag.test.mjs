@@ -158,6 +158,22 @@ console.log("E) memóriakorlát: 1500 felett a zaj megy először, a rutin után
 }
 
 Date.now = realNow;
+console.log("\nF) a fejléc kiegészíthető: a modulkapcsolók állása a napló elején");
+{
+  const d = await fresh();
+  const remove = d.addDumpContext(() => "kikapcsolva: Kidobásvédelem (a többi kapcsoló BE)");
+  d.addDumpContext(() => null);
+  d.addDumpContext(() => { throw new Error("hibás szolgáltató"); });
+  const lines = d.diagDump().split("\n");
+  const at = lines.findIndex(l => l.startsWith("kikapcsolva: Kidobásvédelem"));
+  check("a kapcsoló-sor a fejlécben van", at > 0, true);
+  check("a böngésző-sor után", lines[at - 1].startsWith("böngésző:"), true);
+  check("a megnyitás-sor előtt", lines[at + 1].startsWith("az oldal megnyitva:"), true);
+  check("a null és a hibázó szolgáltató nem ad sort", lines.filter(l => l === "" || l.includes("hibás")).length, 1);
+  remove();
+  check("leiratkozás után eltűnik", d.diagDump().includes("kikapcsolva: Kidobásvédelem"), false);
+}
+
 const failed = results.filter(r => !r).length;
 console.log(failed === 0 ? `MIND A(Z) ${results.length} RENDBEN` : `${failed} BUKOTT`);
 process.exit(failed ? 1 : 0);

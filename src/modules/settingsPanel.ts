@@ -1,4 +1,4 @@
-import { diagDump } from "../core/diag";
+import { addDumpContext, diagDump } from "../core/diag";
 import { VERSION } from "../core/env";
 import { isActivityPingEnabled, isAppRefreshEnabled, setActivityPingEnabled, setAppRefreshEnabled } from "./keepAlive";
 import type { NpuModule } from "../core/modules";
@@ -23,7 +23,8 @@ const ENTRIES: SettingEntry[] = [
   {
     moduleId: "keepAlive",
     label: "Kidobásvédelem",
-    description: "A munkamenet életben tartása, hogy a Neptun ne léptessen ki tétlenség miatt (a limit egyetemenként más: BME 30, ÓE 15 perc).",
+    description:
+      "A munkamenet életben tartása, hogy a Neptun ne léptessen ki tétlenség miatt (a limit egyetemenként más: BME, NJE 30; ÓE, DE, PPKE 15; KRE 10 perc).",
   },
   {
     label: "Frissítés a Neptun saját mechanizmusán át (kísérleti)",
@@ -103,6 +104,21 @@ const ENTRIES: SettingEntry[] = [
   },
 ];
 
+function isEntryOn(entry: SettingEntry): boolean {
+  return entry.custom ? entry.custom.get() : isModuleEnabled(entry.moduleId!);
+}
+
+/**
+ * One header line for the diagnostic log: which switches are OFF. Everything
+ * is on by default, so the exceptions are the signal — a log without a single
+ * keep-alive line is then self-explanatory.
+ */
+export function switchSummary(): string {
+  const off = ENTRIES.filter(entry => !isEntryOn(entry)).map(entry => entry.label.replace(/\s*\(kísérleti\)/, ""));
+  return off.length === 0 ? "kapcsolók: minden BE" : `kikapcsolva: ${off.join(", ")} (a többi kapcsoló BE)`;
+}
+addDumpContext(switchSummary);
+
 function buildPanel(onClose: () => void): Panel {
   const panel = createPanel("npu-settings", "NPU · Beállítások");
 
@@ -122,7 +138,7 @@ function buildPanel(onClose: () => void): Panel {
     row.querySelector<HTMLElement>(".npu-item__title")!.textContent = entry.label;
     row.querySelector<HTMLElement>(".npu-item__meta")!.textContent = entry.description;
     const checkbox = row.querySelector<HTMLInputElement>("input")!;
-    checkbox.checked = entry.custom ? entry.custom.get() : isModuleEnabled(entry.moduleId!);
+    checkbox.checked = isEntryOn(entry);
     checkbox.addEventListener("change", () => {
       if (entry.custom) {
         entry.custom.set(checkbox.checked);

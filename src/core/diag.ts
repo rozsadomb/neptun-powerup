@@ -58,6 +58,37 @@ const pageLoadedAt = Math.round(performance.timeOrigin);
 let loginAt: number | null = null;
 let lastAppCall: { at: number; path: string; status: number } | null = null;
 
+// Extra header lines for the dump, supplied by whoever knows them (the
+// settings panel reports the module switches). An Óbuda log without a single
+// keep-alive line took a while to read as "the keep-alive was switched off";
+// the header now says so outright. A provider returning null adds nothing.
+const dumpContextProviders: Array<() => string | null> = [];
+
+export function addDumpContext(provider: () => string | null): () => void {
+  dumpContextProviders.push(provider);
+  return () => {
+    const index = dumpContextProviders.indexOf(provider);
+    if (index >= 0) {
+      dumpContextProviders.splice(index, 1);
+    }
+  };
+}
+
+function dumpContextLines(): string[] {
+  const lines: string[] = [];
+  for (const provider of dumpContextProviders) {
+    try {
+      const line = provider();
+      if (line) {
+        lines.push(line);
+      }
+    } catch {
+      // A broken provider must not break the dump.
+    }
+  }
+  return lines;
+}
+
 export function hhmmss(ms: number): string {
   return new Date(ms).toLocaleTimeString("hu-HU", { hour12: false });
 }
@@ -217,6 +248,7 @@ export function diagDump(): string {
     `Neptun PowerUp! NG v${VERSION} — diagnosztikai napló`,
     `oldal: ${location.host}${APP_BASE}`,
     `böngésző: ${navigator.userAgent}`,
+    ...dumpContextLines(),
     `az oldal megnyitva: ${hhmmss(pageLoadedAt)}, a napló kezdete: ${hhmmss(startedAt)} (${new Date(startedAt).toISOString()})`,
     ...(evicted > 0 ? [`a memóriakorlát miatt ${evicted} régi sor már nincs meg (a zaj és a rutin sorok mennek először)`] : []),
     `tartalom: időpontok, HTTP-státuszok, időtartamok, fül-láthatóság, az app saját kéréseinek útvonala,`,

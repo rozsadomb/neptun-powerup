@@ -60,6 +60,13 @@ await m.storage.reload();
 check("a saját friss módosítás megmarad", m.storage.get("betaNotice", "muted"), true);
 check("a másik fülé is", m.storage.get("betaNotice", "introVersion"), "0.13.0");
 
+console.log("\nE) a kártya szól, ha a kidobásvédelem ki van kapcsolva");
+check("alapból be van kapcsolva → nincs figyelmeztetés", m.keepAliveSwitchedOff(), false);
+m.storage.set("settings", "modules", "keepAlive", false);
+check("kikapcsolva → figyelmeztetés kell", m.keepAliveSwitchedOff(), true);
+m.storage.set("settings", "modules", "keepAlive", true);
+check("visszakapcsolva → nincs", m.keepAliveSwitchedOff(), false);
+
 const failed = results.filter(r => !r).length;
 console.log(failed === 0 ? `MIND A(Z) ${results.length} RENDBEN` : `${failed} BUKOTT`);
 process.exit(failed ? 1 : 0);

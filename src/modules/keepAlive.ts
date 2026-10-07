@@ -24,7 +24,10 @@ import * as storage from "../core/storage";
 // and logs.
 
 const CHECK_INTERVAL_MS = 20_000;
-const REFRESH_MARGIN_MS = 120_000;
+// Chromium throttles a hidden tab to one wake-up a minute, so a refresh due
+// at "2 minutes left" ran with 61-65 s left in the Debrecen and PPKE logs.
+// 150 s keeps at least ~90 s even when the tick is a minute late.
+const REFRESH_MARGIN_MS = 150_000;
 const STARTUP_DELAY_MS = 5_000;
 
 // Experiment B (default OFF — it did not help in the Debrecen log): a tiny

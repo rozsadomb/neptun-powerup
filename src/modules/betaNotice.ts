@@ -4,6 +4,7 @@ import { injectCss } from "../core/dom";
 import { IS_BETA, VERSION } from "../core/env";
 import type { NpuModule } from "../core/modules";
 import { currentPath } from "../core/router";
+import { isModuleEnabled, setModuleEnabled } from "../core/settings";
 import * as storage from "../core/storage";
 import { el, ensureUiCss } from "../core/ui";
 
@@ -81,6 +82,22 @@ export function decide(input: DecideInput): Decision {
   return null;
 }
 
+/** The keep-alive is the feature the logs are for; a log without it says nothing. */
+export function keepAliveSwitchedOff(): boolean {
+  return !isModuleEnabled("keepAlive");
+}
+
+function keepAliveWarningHtml(): string {
+  if (!keepAliveSwitchedOff()) {
+    return "";
+  }
+  return (
+    `<div class="npu-notice__warn">A <b>kidobásvédelem nálad ki van kapcsolva</b>, így a napló nem mutatja meg, ` +
+    `kitart-e a munkamenet. ` +
+    `<button class="npu-button npu-enable-keepalive" type="button">Bekapcsolom</button></div>`
+  );
+}
+
 function readState(): NoticeState {
   const value = storage.get<NoticeState>("betaNotice");
   return value && typeof value === "object" ? value : {};
@@ -139,6 +156,13 @@ function ensureCss(): void {
       background: none; border: 0; padding: 0; font-family: inherit;
     }
     #npu-notice .npu-notice__fine { color: #5a6482; font-size: 11px; margin: 6px 0 0; }
+    #npu-notice .npu-notice__warn {
+      background: #fff5f5; border: 1px solid #ffc9c9; border-radius: 6px;
+      padding: 6px 8px; margin: 0 0 8px; color: #862e2e; font-size: 12px; line-height: 1.5;
+    }
+    #npu-notice .npu-notice__warn b { color: #c92a2a; }
+    #npu-notice .npu-notice__warn .npu-button { margin-left: 4px; background: #c92a2a; }
+    #npu-notice .npu-notice__warn--ok { background: #f0fbf2; border-color: #b2f2bb; color: #2b8a3e; }
     #npu-notice textarea { width: 100%; box-sizing: border-box; height: 120px; margin-top: 6px; font: 11px/1.4 monospace; }
   `);
 }
@@ -176,6 +200,7 @@ function buildCard(kind: CardKind, actions: { close(): void; mute(): void; copy(
       `<p class="npu-notice__text">A szkript még béta. Ha <b>20-30 perc</b> használat után elküldöd a naplót, az akkor is nagy ` +
       `segítség, ha semmi hibát nem tapasztaltál: csak ebből derül ki, hogy a te egyetemeden is kitart a munkamenet. ` +
       `25 perc múlva szólok még egyszer.</p>` +
+      keepAliveWarningHtml() +
       `<div class="npu-notice__actions">` +
       `<button class="npu-button npu-button--subtle npu-ok" type="button">Rendben</button>` +
       `<a class="npu-notice__link npu-about" href="${ABOUT_LOG_URL}" target="_blank" rel="noopener">Mit tartalmaz a napló?</a>` +
@@ -189,6 +214,7 @@ function buildCard(kind: CardKind, actions: { close(): void; mute(): void; copy(
       `<button class="npu-notice__close" type="button" title="Bezárás">✕</button></div>` +
       `<p class="npu-notice__text">Elküldenéd a naplót? A gomb a vágólapra másolja, és megnyitja a visszajelzés-űrlapot ` +
       `egy új fülön: ott csak beilleszted, és odaírod, melyik egyetemre jársz.</p>` +
+      keepAliveWarningHtml() +
       `<div class="npu-notice__actions">` +
       `<button class="npu-button npu-copy" type="button">Napló másolása + űrlap</button>` +
       `<button class="npu-button npu-button--subtle npu-ok" type="button">Később</button>` +
@@ -214,6 +240,15 @@ function buildCard(kind: CardKind, actions: { close(): void; mute(): void; copy(
   element.querySelector(".npu-ok")?.addEventListener("click", actions.close);
   element.querySelector(".npu-mute")?.addEventListener("click", actions.mute);
   element.querySelector(".npu-form")?.addEventListener("click", () => openInNewTab(FORM_URL));
+  element.querySelector<HTMLButtonElement>(".npu-enable-keepalive")?.addEventListener("click", event => {
+    setModuleEnabled("keepAlive", true);
+    diag("béta-értesítő: a kidobásvédelem bekapcsolva a kártyáról");
+    const box = (event.currentTarget as HTMLElement).closest<HTMLElement>(".npu-notice__warn");
+    if (box) {
+      box.classList.add("npu-notice__warn--ok");
+      box.textContent = "Kidobásvédelem bekapcsolva ✓ — 20-30 perc múlva érdemes naplót küldeni.";
+    }
+  });
   const copyButton = element.querySelector<HTMLButtonElement>(".npu-copy");
   copyButton?.addEventListener("click", async () => {
     copyButton.disabled = true;
