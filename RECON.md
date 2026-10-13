@@ -41,6 +41,21 @@ Kurzusadatok (GetSubjectsCourses válasz): `maxLimit`, `registeredStudentsCount`
 
 Tárgyadatok (SchedulableSubjects válasz): `id` (GUID), `code`, `title`, `credit`, `isRegistered`, `isCompleted`, `isInProgress`, `scheduledCourseIds`, `requirementType`, mintatanterv-adatok.
 
+## Naptár API (`Calendar/`) — időszakok (2026-10-13, mérve)
+
+A naptár „Tanulmányi időszak" eseménytípusa mögött a félév időszakai vannak, dátummal:
+
+`GET Calendar/GetCalendarEvents?startDate=2026-09-07T00:00:00.000&endDate=2027-03-12T23:59:59.999&isPeriodsVisible=true&isClassesVisible=false&isExamsVisible=false&isFinalExamsVisible=false&isOnlineMeetingsVisible=false&isOtherEventsVisible=false&isTasksVisible=false&studentTrainingIds[0]=<GUID>`
+
+- A `studentTrainingIds` a `MyTrainings` végpontból: `data[].studentTrainingId` (+ `isArchived`, `hasActualTerm`, `actualTermId`).
+- Válasz `{ data: [...] }`; egy időszak: `term` ("2026/27/1"), `intervalType`, `name`, `startDate`, `endDate`, `eventTypeId` (6), `fromOtherTraining`.
+- BME 2026/27/1: `Szorgalmi Időszak` 2026-09-07 → 2026-12-11; `Vizsgajelentkezési időszak` 2026-12-08 → 2027-01-29;
+  továbbá Beiratkozási, Bejelentkezési, Jegybeírási, Kurzusjelentkezési, Végleges tárgyjelentkezés.
+  **Vizsgaidőszak típusú időszak a BME-n nincs** (pótlási hét sem) — a vizsgahét csak ott számolható, ahol az egyetem listázza.
+- Egy évnél szélesebb tartományra a szerver **500**-at ad; fél év rendben.
+- A heti nézet fejléce: `button#toolbar-actual-date-btn … h4` → „2026. október 12. - 2026. október 18."; napi nézetben egy dátum, havi nézetben csak hónap.
+- Ebből él a `weekLabel` modul („6. szorgalmi hét").
+
 ## Vizsga API
 
 | Végpont | Mit csinál |

@@ -19,6 +19,7 @@ import { subjectAutoSearch } from "./modules/subjectAutoSearch";
 import { subjectHistory } from "./modules/subjectHistory";
 import { subjectInlineControls } from "./modules/subjectInlineControls";
 import { termMemory } from "./modules/termMemory";
+import { weekLabel } from "./modules/weekLabel";
 
 // A @include minták szándékosan tágak, hogy a szkript minden egyetem Neptunján
 // elinduljon (a címek és útvonalak intézményenként eltérnek). Ezért futásidőben
@@ -51,6 +52,7 @@ import { termMemory } from "./modules/termMemory";
     subjectHistory,
     subjectInlineControls,
     examOverview,
+    weekLabel,
     quickSignup,
     autoLogin,
     betaNotice,

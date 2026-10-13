@@ -69,6 +69,12 @@ const ENTRIES: SettingEntry[] = [
     description: "Színezett vizsgalista félévválasztóval a Vizsgák oldalain.",
   },
   {
+    moduleId: "weekLabel",
+    label: "Hét sorszáma a naptárban",
+    description:
+      "A naptár fejlécében kiírja, hányadik szorgalmi hét látszik („6. szorgalmi hét”), a Neptun saját időszak-adataiból; vizsgahetet csak ott, ahol a Neptun vizsgaidőszakot is listáz.",
+  },
+  {
     moduleId: "termMemory",
     label: "Félévválasztó-memória",
     description: "A vizsgaoldalakon megjegyzi és visszaállítja az utoljára választott félévet.",
