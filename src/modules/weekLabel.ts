@@ -2,6 +2,7 @@ import { api } from "../core/api";
 import { diag } from "../core/diag";
 import { injectCss } from "../core/dom";
 import type { NpuModule } from "../core/modules";
+import { OPEN_SETTINGS_EVENT } from "../core/settings";
 import * as storage from "../core/storage";
 import { ensureUser } from "../core/user";
 
@@ -10,9 +11,15 @@ import { ensureUser } from "../core/user";
 // A Neptun naptára a háttérben tárolja a félév időszakait dátummal — a
 // „Tanulmányi időszak" eseménytípus mögött —, köztük a szorgalmi időszakot.
 // Ebből számoljuk a hét sorszámát: az időszak kezdőhetének hétfőjétől, hétfő-
-// vasárnap hetekkel. Vizsgahetet csak akkor írunk, ha az egyetem
-// „Vizsgaidőszak" típusú időszakot is listáz (a BME nem, csak a
-// vizsgajelentkezési időszakot — abból nem találgatunk).
+// vasárnap hetekkel.
+//
+// Vizsgaidőszakot a Neptun nem listáz (sem a BME, sem az ÓE), ezért a vizsgahét
+// három forrásból jöhet, ebben a bizalmi sorrendben: (1) „Vizsgaidőszak" típusú
+// időszak a Neptuntól, ha egyszer mégis lesz; (2) a hallgató által a
+// beállításokban megadott két dátum; (3) becslés az óbudai jelentő szabályával:
+// a szorgalmi időszak utáni hétfőtől a következő félév szorgalmi időszakának
+// előtti vasárnapig (ha az nem ismert, nyolc hétig). A becsült címke „≈"-vel
+// és magyarázattal jelenik meg, hogy senkit ne tévesszen meg.
 //
 // Az időszakokat félévente elég egyszer lekérni; a válasz hallgatónként
 // tárolódik és hetente frissül. Mérés: RECON.md, „Naptár API".
@@ -23,12 +30,28 @@ export interface Period {
   start: string;
   end: string;
   term?: string;
+  /** Nem a Neptuntól jött: a szorgalmi időszak végéből becsültük. */
+  estimated?: boolean;
+}
+
+export interface WeekInfo {
+  text: string;
+  estimated: boolean;
+}
+
+export interface ManualPeriod {
+  start: string; // ÉÉÉÉ-HH-NN
+  end: string;
 }
 
 export type PeriodKind = "study" | "exam";
 
 export const DAY_MS = 86_400_000;
 const CACHE_MAX_AGE_MS = 7 * DAY_MS;
+// Ha a következő félév szorgalmi időszaka nem ismert, ennyi hétig tart a becsült vizsgaidőszak.
+export const ESTIMATE_WEEKS = 8;
+const ESTIMATE_TYPE = "Vizsgaidőszak (becslés)";
+const MANUAL_TYPE = "Vizsgaidőszak (beállítás)";
 // Fél év előre és vissza: ennyit a szerver még kiszolgál (egy év fölött 500-at ad).
 const WINDOW_DAYS = 150;
 const POLL_MS = 1000;
@@ -75,7 +98,7 @@ export function kindOf(period: { type?: string; name?: string }): PeriodKind | n
 }
 
 /** „6. szorgalmi hét" / „2. vizsgahét" a mutatott dátumra, vagy null. */
-export function labelFor(periods: Period[], date: Date): string | null {
+export function describeWeek(periods: Period[], date: Date): WeekInfo | null {
   for (const kind of ["study", "exam"] as const) {
     const candidates = periods
       .filter(period => kindOf(period) === kind)
@@ -84,11 +107,79 @@ export function labelFor(periods: Period[], date: Date): string | null {
       // Két félév átfedésénél a később kezdődő a mostani.
       .sort((a, b) => new Date(b.period.start).getTime() - new Date(a.period.start).getTime());
     if (candidates.length > 0) {
-      const n = candidates[0].n!;
-      return kind === "study" ? `${n}. szorgalmi hét` : `${n}. vizsgahét`;
+      const { period, n } = candidates[0];
+      return { text: kind === "study" ? `${n}. szorgalmi hét` : `${n}. vizsgahét`, estimated: period.estimated === true };
     }
   }
   return null;
+}
+
+export function labelFor(periods: Period[], date: Date): string | null {
+  return describeWeek(periods, date)?.text ?? null;
+}
+
+function localIso(date: Date): string {
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  );
+}
+
+/**
+ * Becsült vizsgaidőszakok a szorgalmi időszakokból: a szorgalmi vége utáni
+ * hétfőtől a következő szorgalmi időszak hetének előtti vasárnapjáig; utolsó
+ * ismert félévnél ESTIMATE_WEEKS hétig.
+ */
+export function estimateExamPeriods(periods: Period[]): Period[] {
+  const studies = periods
+    .filter(period => kindOf(period) === "study")
+    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  const estimates: Period[] = [];
+  studies.forEach((study, index) => {
+    const start = mondayOf(new Date(study.end));
+    start.setDate(start.getDate() + 7);
+    const next = studies[index + 1];
+    const end = next ? mondayOf(new Date(next.start)) : new Date(start);
+    end.setDate(end.getDate() + (next ? -1 : ESTIMATE_WEEKS * 7 - 1));
+    end.setHours(23, 59, 59, 0);
+    if (end >= start) {
+      estimates.push({ type: ESTIMATE_TYPE, name: ESTIMATE_TYPE, start: localIso(start), end: localIso(end), term: study.term, estimated: true });
+    }
+  });
+  return estimates;
+}
+
+/** A kézi beállítás két dátuma mint időszak; hibás vagy hiányos értékre null. */
+export function parseManualPeriod(value: unknown): Period | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const { start, end } = value as Partial<ManualPeriod>;
+  const valid = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(`${s}T00:00:00`).getTime());
+  if (!valid(start) || !valid(end) || start > end) {
+    return null;
+  }
+  return { type: MANUAL_TYPE, name: MANUAL_TYPE, start: `${start}T00:00:00`, end: `${end}T23:59:59` };
+}
+
+/** A Neptun időszakai, kiegészítve a vizsgaidőszakkal a bizalmi sorrend szerint. */
+export function effectivePeriods(periods: Period[], manual: Period | null): Period[] {
+  if (periods.some(period => kindOf(period) === "exam")) {
+    return periods;
+  }
+  if (manual) {
+    return [...periods, manual];
+  }
+  return [...periods, ...estimateExamPeriods(periods)];
+}
+
+export function getManualExamPeriod(): ManualPeriod | null {
+  const value = storage.get<ManualPeriod>("weekLabel", "examPeriod");
+  return value && typeof value === "object" ? value : null;
+}
+
+export function setManualExamPeriod(value: ManualPeriod | null): void {
+  storage.set("weekLabel", "examPeriod", value);
 }
 
 /**
@@ -195,6 +286,12 @@ export const weekLabel: NpuModule = {
         white-space: nowrap;
         vertical-align: middle;
       }
+      .npu-week-chip--estimate {
+        background: #eef2fb;
+        color: #1b2a5e;
+        border: 1px dashed #8a97c2;
+        cursor: pointer;
+      }
     `);
     let destroyed = false;
     let periods: Period[] | null = null;
@@ -218,14 +315,16 @@ export const weekLabel: NpuModule = {
       }
       const button = document.getElementById("toolbar-actual-date-btn");
       const text = button?.textContent?.trim() ?? "";
+      const manualRaw = getManualExamPeriod();
+      const key = `${text}|${JSON.stringify(manualRaw)}`;
       const attached = chip !== null && button !== null && chip.previousElementSibling === button;
-      if (text === lastText && attached) {
+      if (key === lastText && attached) {
         return;
       }
-      lastText = text;
+      lastText = key;
       const date = button ? parseHeaderDate(text) : null;
-      const label = date ? labelFor(periods, date) : null;
-      if (!label || !button) {
+      const info = date ? describeWeek(effectivePeriods(periods, parseManualPeriod(manualRaw)), date) : null;
+      if (!info || !button) {
         chip?.remove();
         chip = null;
         return;
@@ -234,9 +333,20 @@ export const weekLabel: NpuModule = {
         chip?.remove();
         chip = document.createElement("span");
         chip.className = "npu-week-chip";
+        // A becsült címke a beállításokhoz visz, ahol pontosítható.
+        chip.addEventListener("click", () => {
+          if (chip?.classList.contains("npu-week-chip--estimate")) {
+            document.dispatchEvent(new CustomEvent(OPEN_SETTINGS_EVENT));
+          }
+        });
         button.insertAdjacentElement("afterend", chip);
       }
-      chip!.textContent = label;
+      chip!.classList.toggle("npu-week-chip--estimate", info.estimated);
+      chip!.textContent = info.estimated ? `≈ ${info.text}` : info.text;
+      chip!.title = info.estimated
+        ? "Becslés: a szorgalmi időszak utáni hétfőtől számolva, mert a Neptun nem listázza a vizsgaidőszakot. " +
+          "Kattints, és az NPU beállításaiban megadhatod a pontos dátumokat."
+        : "";
     };
     const timer = window.setInterval(refresh, POLL_MS);
 

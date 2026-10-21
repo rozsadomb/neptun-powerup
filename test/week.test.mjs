@@ -69,6 +69,44 @@ check("évváltás", iso(m.parseHeaderDate("2027. január 4. - 2027. január 10.
 check("nagybetűs hónap", iso(m.parseHeaderDate("2026. Október 12.")), "2026-10-12");
 check("zaj → nincs", m.parseHeaderDate("Heti nézet"), null);
 
+console.log("\nE2) becsült vizsgaidőszak a szorgalmi időszakból (az óbudai szabály)");
+const nextStudy = { type: "Szorgalmi Időszak", name: "Szorgalmi időszak 2026/27/2", start: "2027-02-15T06:00:00", end: "2027-05-28T23:59:59" };
+let est = m.estimateExamPeriods([study, nextStudy, examReg]);
+check("két szorgalmiból két becslés", est.length, 2);
+check("a szorgalmi (péntek, dec 11) utáni hétfőtől", est[0].start, "2026-12-14T00:00:00");
+check("a következő félév hetének előtti vasárnapjáig", est[0].end, "2027-02-14T23:59:59");
+check("becsültként jelölve", est[0].estimated, true);
+check("az utolsó ismert félév után 8 hét", est[1].end, "2027-07-25T23:59:59");
+est = m.estimateExamPeriods([{ ...study, end: "2026-12-13T23:59:59" }]);
+check("vasárnapi szorgalmi-vég után is a következő hétfő", est[0].start, "2026-12-14T00:00:00");
+check("szorgalmi nélkül nincs becslés", m.estimateExamPeriods([examReg]).length, 0);
+
+console.log("\nE3) a vizsgahét forrása: Neptun > kézi > becslés");
+const manual = m.parseManualPeriod({ start: "2026-12-21", end: "2027-01-29" });
+check("kézi időszak érvényes", !!manual, true);
+check("hibás sorrend → null", m.parseManualPeriod({ start: "2027-01-29", end: "2026-12-21" }), null);
+check("hiányos → null", m.parseManualPeriod({ start: "2026-12-21", end: "" }), null);
+check("rossz alak → null", m.parseManualPeriod({ start: "2026.12.21", end: "2027-01-29" }), null);
+check("nem objektum → null", m.parseManualPeriod("2026-12-21"), null);
+let eff = m.effectivePeriods([study, examReg, exam], manual);
+check("ha a Neptun ad vizsgaidőszakot, a kézi nem számít", eff.length, 3);
+eff = m.effectivePeriods([study, examReg], manual);
+check("Neptun nélkül a kézi kerül be", eff.some(p => p.type.includes("beállítás")), true);
+check("és becslés nincs mellette", eff.some(p => p.estimated), false);
+eff = m.effectivePeriods([study, examReg, nextStudy], null);
+check("kézi nélkül becslés", eff.some(p => p.estimated), true);
+let info = m.describeWeek(eff, d(2026, 12, 16));
+check("ÓE: dec 14-i hét = ≈ 1. vizsgahét", info.text + "|" + info.estimated, "1. vizsgahét|true");
+info = m.describeWeek(eff, d(2027, 2, 10));
+check("febr 10 = ≈ 9. vizsgahét", info.text, "9. vizsgahét");
+info = m.describeWeek(eff, d(2027, 2, 16));
+check("febr 15-től az új félév 1. szorgalmi hete", info.text + "|" + info.estimated, "1. szorgalmi hét|false");
+info = m.describeWeek(m.effectivePeriods([study, examReg], manual), d(2026, 12, 16));
+check("kézi beállítással dec 16 még nem vizsgahét (dec 21-től)", info, null);
+info = m.describeWeek(m.effectivePeriods([study, examReg], manual), d(2026, 12, 23));
+check("kézi: dec 23 = 1. vizsgahét, nem becsült", info.text + "|" + info.estimated, "1. vizsgahét|false");
+check("a szorgalmi hét becslés mellett is pontos", m.describeWeek(eff, d(2026, 10, 14)).estimated, false);
+
 console.log("\nF) a lekérdezés alakja");
 const q = m.periodsQuery(["abc-123"], d(2026, 10, 13));
 check("a naptár végpontja", q.startsWith("Calendar/GetCalendarEvents?"), true);

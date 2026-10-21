@@ -1,6 +1,7 @@
 import { addDumpContext, diagDump } from "../core/diag";
 import { VERSION } from "../core/env";
 import { isActivityPingEnabled, isAppRefreshEnabled, setActivityPingEnabled, setAppRefreshEnabled } from "./keepAlive";
+import { getManualExamPeriod, setManualExamPeriod } from "./weekLabel";
 import type { NpuModule } from "../core/modules";
 import { isModuleEnabled, OPEN_SETTINGS_EVENT, setModuleEnabled } from "../core/settings";
 import * as storage from "../core/storage";
@@ -17,6 +18,52 @@ interface SettingEntry {
   moduleId?: string;
   /** ...or a custom storage-backed switch (backToLastPage's own opt-in). */
   custom?: { get(): boolean; set(value: boolean): void };
+  /** Extra controls rendered under the row (the week label's exam-period dates). */
+  extra?: () => HTMLElement;
+}
+
+// Két dátummező a vizsgaidőszakhoz. Üresen a szkript becsül; két érvényes
+// dátummal a becslés helyett ezt használja, azonnal (a naptár másodpercenként
+// újraolvassa).
+function examPeriodControls(): HTMLElement {
+  const box = el(
+    `<div class="npu-item" style="display:block;margin-top:-4px;border-left-color:#8a97c2">` +
+      `<span class="npu-item__meta" style="display:block;margin-bottom:6px">Vizsgaidőszak: a Neptun nem listázza, ezért üresen hagyva ` +
+      `a szkript becsül (a szorgalmi időszak utáni hétfőtől a következő félév kezdetéig), és a címkén „≈” jelzi. ` +
+      `Két dátummal a saját egyetemed pontos vizsgaidőszakát adhatod meg.</span>` +
+      `<span style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12px">` +
+      `<label>kezdete <input type="date" class="npu-exam-start" style="font:12px system-ui,sans-serif"></label>` +
+      `<label>vége <input type="date" class="npu-exam-end" style="font:12px system-ui,sans-serif"></label>` +
+      `<span class="npu-note npu-exam-status" style="margin:0"></span></span>` +
+      `</div>`
+  );
+  const start = box.querySelector<HTMLInputElement>(".npu-exam-start")!;
+  const end = box.querySelector<HTMLInputElement>(".npu-exam-end")!;
+  const status = box.querySelector<HTMLElement>(".npu-exam-status")!;
+  const stored = getManualExamPeriod();
+  start.value = stored?.start ?? "";
+  end.value = stored?.end ?? "";
+  const show = () => {
+    if (!start.value && !end.value) {
+      status.textContent = "üres: becslés";
+    } else if (start.value && end.value && start.value <= end.value) {
+      status.textContent = "mentve ✓";
+    } else {
+      status.textContent = "add meg mindkét dátumot (kezdet ≤ vég)";
+    }
+  };
+  const save = () => {
+    if (!start.value && !end.value) {
+      setManualExamPeriod(null);
+    } else if (start.value && end.value && start.value <= end.value) {
+      setManualExamPeriod({ start: start.value, end: end.value });
+    }
+    show();
+  };
+  start.addEventListener("change", save);
+  end.addEventListener("change", save);
+  show();
+  return box;
 }
 
 const ENTRIES: SettingEntry[] = [
@@ -72,7 +119,8 @@ const ENTRIES: SettingEntry[] = [
     moduleId: "weekLabel",
     label: "Hét sorszáma a naptárban",
     description:
-      "A naptár fejlécében kiírja, hányadik szorgalmi hét látszik („6. szorgalmi hét”), a Neptun saját időszak-adataiból; vizsgahetet csak ott, ahol a Neptun vizsgaidőszakot is listáz.",
+      "A naptár fejlécében kiírja, hányadik szorgalmi hét látszik („6. szorgalmi hét”), a Neptun saját időszak-adataiból; vizsgaidőszakban a vizsgahetet.",
+    extra: examPeriodControls,
   },
   {
     moduleId: "termMemory",
@@ -153,6 +201,9 @@ function buildPanel(onClose: () => void): Panel {
       }
     });
     panel.body.appendChild(row);
+    if (entry.extra) {
+      panel.body.appendChild(entry.extra());
+    }
   });
 
   // Diagnostics: the log never leaves the machine on its own. The button puts
