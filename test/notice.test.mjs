@@ -25,6 +25,8 @@ check("rejtett fülön → semmi (majd ha látszik)", decide({ visible: false })
 check("nyitott kártya mellett → semmi", decide({ cardOpen: true }), null);
 check("ugyanabban a verzióban már látta → nem jön újra", decide({ state: { introVersion: "0.13.0" } }), null);
 check("új verzió → egyszer újra", decide({ state: { introVersion: "0.12.4" } }), "intro");
+check("javító kiadás (0.13.1 → 0.13.0 minor azonos) → nem jön újra", decide({ state: { introVersion: "0.13.1" } }), null);
+check("új minor (0.13.x → 0.14.0) → újra", decide({ state: { introVersion: "0.13.2" }, version: "0.14.0" }), "intro");
 check("elnémítva → soha", decide({ state: { muted: true } }), null);
 check("ezen a fülön már volt → nem duplázódik", decide({ introShownInTab: true }), null);
 

@@ -54,6 +54,9 @@ const ESTIMATE_TYPE = "Vizsgaidőszak (becslés)";
 const MANUAL_TYPE = "Vizsgaidőszak (beállítás)";
 // Fél év előre és vissza: ennyit a szerver még kiszolgál (egy év fölött 500-at ad).
 const WINDOW_DAYS = 150;
+const NARROW_WINDOW_DAYS = 60;
+// Ha ennyi másodpercig nincs meg a naptár fejléce, a napló szól róla.
+const HEADER_MISSING_TICKS = 15;
 const POLL_MS = 1000;
 
 const MONTHS = [
@@ -87,7 +90,8 @@ export function weekNumber(periodStart: Date, periodEnd: Date, date: Date): numb
 
 export function kindOf(period: { type?: string; name?: string }): PeriodKind | null {
   const text = `${period.type ?? ""} ${period.name ?? ""}`.toLowerCase();
-  if (text.includes("szorgalmi")) {
+  // Intézményenként más lehet a neve: szorgalmi / oktatási / tanítási időszak.
+  if (text.includes("szorgalmi") || text.includes("oktatási időszak") || text.includes("tanítási időszak")) {
     return "study";
   }
   // „Vizsgaidőszak" igen, „Vizsgajelentkezési időszak" nem.
@@ -186,8 +190,34 @@ export function setManualExamPeriod(value: ManualPeriod | null): void {
  * A naptár fejlécének első dátuma: „2026. október 12. - 2026. október 18."
  * vagy „2026. október 13."; havi nézetben („2026. október") nincs nap, null.
  */
+const HEADER_DATE_RE = /(\d{4})\.\s*([a-záéíóöőúüű]+)\s*(\d{1,2})\./i;
+
+export interface HeaderHit {
+  anchor: HTMLElement;
+  text: string;
+  byId: boolean;
+}
+
+/**
+ * A naptár fejlécének dátum-gombja. A BME-n azonosítója van; ha egy másik
+ * intézmény Neptunja máshogy nevezi, a dátumszöveg alapján keressük meg.
+ */
+export function findHeader(root: ParentNode = document): HeaderHit | null {
+  const byId = (root as Document).getElementById?.("toolbar-actual-date-btn") ?? root.querySelector<HTMLElement>("#toolbar-actual-date-btn");
+  if (byId) {
+    return { anchor: byId, text: byId.textContent?.trim() ?? "", byId: true };
+  }
+  for (const element of root.querySelectorAll<HTMLElement>("main button, main h4, main h3, main h2")) {
+    const text = element.textContent?.trim() ?? "";
+    if (text.length < 60 && HEADER_DATE_RE.test(text)) {
+      return { anchor: element.closest<HTMLElement>("button") ?? element, text, byId: false };
+    }
+  }
+  return null;
+}
+
 export function parseHeaderDate(text: string): Date | null {
-  const match = /(\d{4})\.\s*([a-záéíóöőúüű]+)\s*(\d{1,2})\./i.exec(text);
+  const match = HEADER_DATE_RE.exec(text);
   if (!match) {
     return null;
   }
@@ -206,17 +236,17 @@ export function formatApiDate(date: Date, endOfDay = false): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`;
 }
 
-export function periodsWindow(now: Date): { startDate: string; endDate: string } {
+export function periodsWindow(now: Date, days = WINDOW_DAYS): { startDate: string; endDate: string } {
   const start = new Date(now);
-  start.setDate(start.getDate() - WINDOW_DAYS);
+  start.setDate(start.getDate() - days);
   const end = new Date(now);
-  end.setDate(end.getDate() + WINDOW_DAYS);
+  end.setDate(end.getDate() + days);
   return { startDate: formatApiDate(start), endDate: formatApiDate(end, true) };
 }
 
 /** A naptár saját lekérdezése, csak az időszakokra szűkítve. */
-export function periodsQuery(trainingIds: string[], now: Date): string {
-  const { startDate, endDate } = periodsWindow(now);
+export function periodsQuery(trainingIds: string[], now: Date, days = WINDOW_DAYS): string {
+  const { startDate, endDate } = periodsWindow(now, days);
   const flags =
     "isPeriodsVisible=true&isClassesVisible=false&isExamsVisible=false&isFinalExamsVisible=false" +
     "&isOnlineMeetingsVisible=false&isOtherEventsVisible=false&isTasksVisible=false";
@@ -242,19 +272,36 @@ interface Cached {
   periods: Period[];
 }
 
+function summarize(periods: Period[]): string {
+  return periods.map(p => `${kindOf(p)} ${p.start.slice(0, 10)}…${p.end.slice(0, 10)}`).join(", ") || "nincs";
+}
+
+async function fetchPeriodEvents(ids: string[], now: Date): Promise<CalendarEvent[]> {
+  try {
+    return (await api<CalendarEvent[]>(periodsQuery(ids, now, WINDOW_DAYS))) ?? [];
+  } catch (error) {
+    // A BME egy évnél tágabb ablakra 500-at ad; más intézmény lehet, hogy
+    // szűkebbre is. Egy rövidebb ablak a mostani félévet még lefedi.
+    diag(`hétszám: a ±${WINDOW_DAYS} napos lekérés nem sikerült (${error instanceof Error ? error.message : String(error)}), szűkebb ablakkal újra`);
+    return (await api<CalendarEvent[]>(periodsQuery(ids, now, NARROW_WINDOW_DAYS))) ?? [];
+  }
+}
+
 export async function loadPeriods(now = new Date()): Promise<Period[]> {
   const user = (await ensureUser()) ?? "anon";
   const cached = storage.get<Cached>("weekLabel", user);
   if (cached && typeof cached.at === "number" && now.getTime() - cached.at < CACHE_MAX_AGE_MS && Array.isArray(cached.periods)) {
+    diag(`hétszám: ${cached.periods.length} időszak a tárolóból (${summarize(cached.periods)})`, "routine");
     return cached.periods;
   }
   const trainings = (await api<Training[]>("MyTrainings")) ?? [];
   const active = trainings.filter(t => !t.isArchived);
   const ids = (active.length > 0 ? active : trainings).map(t => t.studentTrainingId).filter(Boolean);
   if (ids.length === 0) {
+    diag("hétszám: a MyTrainings nem adott képzést, nincs mit lekérni");
     return [];
   }
-  const events = (await api<CalendarEvent[]>(periodsQuery(ids, now))) ?? [];
+  const events = await fetchPeriodEvents(ids, now);
   const periods: Period[] = events
     .filter(event => kindOf({ type: event.intervalType, name: event.name }) !== null)
     .map(event => ({
@@ -265,7 +312,14 @@ export async function loadPeriods(now = new Date()): Promise<Period[]> {
       term: event.term,
     }));
   storage.set("weekLabel", user, { at: now.getTime(), periods } satisfies Cached);
-  diag(`hétszám: ${periods.length} időszak (${periods.map(p => `${kindOf(p)} ${p.start.slice(0, 10)}…${p.end.slice(0, 10)}`).join(", ") || "nincs"})`, "routine");
+  // Az intézmény időszak-típusai nem személyes adatok, és pont ezekből derül
+  // ki, miért nincs címke egy másik egyetemen.
+  const types = [...new Set(events.map(event => event.intervalType ?? "(típus nélkül)"))].sort().join(", ") || "semmi";
+  if (periods.length === 0) {
+    diag(`hétszám: a Neptun ${events.length} időszakot adott, de szorgalmi időszak nincs köztük — típusok: ${types}`);
+  } else {
+    diag(`hétszám: a Neptun ${events.length} időszakot adott (típusok: ${types}); felismerve: ${summarize(periods)}`, "routine");
+  }
   return periods;
 }
 
@@ -309,26 +363,46 @@ export const weekLabel: NpuModule = {
 
     // A fejléc gombját az app újrarajzolja nézetváltáskor és lapozáskor, ezért
     // nem egy elemre akaszkodunk, hanem másodpercenként megnézzük, mi látszik.
+    let missingTicks = 0;
+    let fallbackLogged = false;
     const refresh = () => {
       if (destroyed || periods === null) {
         return;
       }
-      const button = document.getElementById("toolbar-actual-date-btn");
-      const text = button?.textContent?.trim() ?? "";
+      const header = findHeader();
+      if (!header) {
+        missingTicks++;
+        if (missingTicks === HEADER_MISSING_TICKS) {
+          diag("hétszám: a naptár fejlécét (toolbar-actual-date-btn, vagy dátumszövegű gomb/cím) nem találom, címke nélkül");
+        }
+        chip?.remove();
+        chip = null;
+        lastText = "";
+        return;
+      }
+      if (!header.byId && !fallbackLogged) {
+        fallbackLogged = true;
+        diag("hétszám: a naptár fejlécét azonosító nélkül, a dátumszöveg alapján találtam meg", "routine");
+      }
+      const { anchor, text } = header;
       const manualRaw = getManualExamPeriod();
       const key = `${text}|${JSON.stringify(manualRaw)}`;
-      const attached = chip !== null && button !== null && chip.previousElementSibling === button;
+      const attached = chip !== null && chip.previousElementSibling === anchor;
       if (key === lastText && attached) {
         return;
       }
       lastText = key;
-      const date = button ? parseHeaderDate(text) : null;
+      const date = parseHeaderDate(text);
       const info = date ? describeWeek(effectivePeriods(periods, parseManualPeriod(manualRaw)), date) : null;
-      if (!info || !button) {
+      if (!info) {
+        if (date) {
+          diag(`hétszám: a mutatott hétre nincs időszak (${text})`, "routine");
+        }
         chip?.remove();
         chip = null;
         return;
       }
+      diag(`hétszám: ${info.estimated ? "≈ " : ""}${info.text} (${text})`, "routine");
       if (!attached) {
         chip?.remove();
         chip = document.createElement("span");
@@ -339,7 +413,7 @@ export const weekLabel: NpuModule = {
             document.dispatchEvent(new CustomEvent(OPEN_SETTINGS_EVENT));
           }
         });
-        button.insertAdjacentElement("afterend", chip);
+        anchor.insertAdjacentElement("afterend", chip);
       }
       chip!.classList.toggle("npu-week-chip--estimate", info.estimated);
       chip!.textContent = info.estimated ? `≈ ${info.text}` : info.text;

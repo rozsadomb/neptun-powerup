@@ -13,6 +13,7 @@ globalThis.CustomEvent = class { constructor(type, init) { this.type = type; thi
 globalThis.Event = class { constructor(type) { this.type = type; } };
 globalThis.sessionStorage = makeStore(); globalThis.localStorage = makeStore();
 globalThis.window = { setInterval, clearInterval, setTimeout, clearTimeout };
+globalThis.navigator = { userAgent: "teszt" };
 const b64 = o => Buffer.from(JSON.stringify(o)).toString("base64url");
 const jwt = () => `${b64({ alg: "HS256" })}.${b64({ SessionId: "s1", iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 300 })}.s`;
 sessionStorage.setItem("access_token", jwt());
@@ -45,6 +46,8 @@ check("Vizsgaidőszak → vizsga", m.kindOf({ type: "Vizsgaidőszak", name: "Viz
 check("Vizsgajelentkezési időszak → NEM vizsga", m.kindOf({ type: "Vizsgajelentkezési időszak", name: "Vizsgajelentkezési időszak 2026/27/1" }), null);
 check("Jegybeírási → semmi", m.kindOf({ type: "Jegybeírási időszak", name: "Jegybeírási időszak" }), null);
 check("csak a névből is", m.kindOf({ type: "Egyéb", name: "Vizsgaidőszak 2026/27/1" }), "exam");
+check("más intézmény: Oktatási időszak → szorgalmi", m.kindOf({ type: "Oktatási időszak", name: "Oktatási időszak 2026/27/1" }), "study");
+check("más intézmény: Tanítási időszak → szorgalmi", m.kindOf({ type: "Tanítási időszak", name: "" }), "study");
 check("hiányzó mezők → semmi", m.kindOf({}), null);
 
 console.log("\nD) a felirat");
@@ -145,6 +148,51 @@ periods = await m.loadPeriods(new Date(now.getTime() + 2 * 86400000));
 check("két nappal később nem kérdez újra", calls.length, before);
 periods = await m.loadPeriods(new Date(now.getTime() + 8 * 86400000));
 check("egy hét után frissít", calls.slice(before).includes("Calendar/GetCalendarEvents"), true);
+let dump = m.diag.diagDump();
+check("a napló elmondja, mit adott a Neptun", /hétszám: a Neptun 3 időszakot adott \(típusok: Jegybeírási időszak, Szorgalmi Időszak, Vizsgajelentkezési időszak\)/.test(dump), true);
+check("a tárolóból érkező adat is naplózva", /hétszám: 1 időszak a tárolóból/.test(dump), true);
+
+console.log("\nH) ha a tág ablakra hibát ad a szerver, szűkebbel újra; ha nincs szorgalmi, a napló kimondja");
+let failWide = true; calls = [];
+const realFetch = globalThis.fetch;
+const hNow = new Date(now.getTime() + 30 * 86400000);
+const wideStart = m.periodsWindow(hNow).startDate;
+globalThis.fetch = async (url, init) => {
+  const u = String(url);
+  if (u.includes("Calendar/GetCalendarEvents") && failWide && u.includes("startDate=" + wideStart)) {
+    calls.push("Calendar/GetCalendarEvents");
+    failWide = false;
+    return { ok: false, status: 500, headers: { get: () => null }, json: async () => ({}), text: async () => "Internal Server Error" };
+  }
+  return realFetch(url, init);
+};
+periods = await m.loadPeriods(hNow);
+check("a második (szűkebb) lekérés sikerült", periods.length, 1);
+check("két naptár-kérés ment", calls.filter(c => c === "Calendar/GetCalendarEvents").length, 2);
+dump = m.diag.diagDump();
+check("a napló jelzi az újrapróbát", /szűkebb ablakkal újra/.test(dump), true);
+globalThis.fetch = async (url, init) => {
+  const u = String(url);
+  if (u.includes("Calendar/GetCalendarEvents")) {
+    calls.push("Calendar/GetCalendarEvents");
+    return { ok: true, status: 200, headers: { get: () => null }, json: async () => ({ data: [{ intervalType: "Jegybeírási időszak", name: "x", startDate: "2026-08-31T06:00:00", endDate: "2027-02-02T14:00:00" }] }), text: async () => "{}" };
+  }
+  return realFetch(url, init);
+};
+periods = await m.loadPeriods(new Date(now.getTime() + 60 * 86400000));
+check("szorgalmi nélkül üres lista", periods.length, 0);
+dump = m.diag.diagDump();
+check("és a napló kimondja, mely típusok jöttek", /szorgalmi időszak nincs köztük — típusok: Jegybeírási időszak/.test(dump), true);
+
+console.log("\nI) a naptár fejlécének megtalálása azonosító nélkül is");
+const fakeDoc = (html) => { const nodes = []; const re = /<(button|h4)([^>]*)>([^<]*)<\/\1>/g; let mm; while ((mm = re.exec(html))) nodes.push({ tag: mm[1], id: /id="([^"]+)"/.exec(mm[2])?.[1] ?? "", textContent: mm[3], closest: function (sel) { return sel === "button" && this.tag === "button" ? this : null; } }); return { getElementById: id => nodes.find(n => n.id === id) ?? null, querySelector: () => null, querySelectorAll: () => nodes }; };
+let hit = m.findHeader(fakeDoc('<button id="toolbar-actual-date-btn">2026. október 12. - 2026. október 18.</button>'));
+check("azonosítóval: megvan", hit && hit.byId && hit.text.startsWith("2026. október 12."), true);
+hit = m.findHeader(fakeDoc('<button id="other-btn">Heti nézet</button><button id="date-btn-2">2026. október 12. - 2026. október 18.</button>'));
+check("azonosító nélkül a dátumszöveg alapján", hit && !hit.byId && hit.anchor.id === "date-btn-2", true);
+hit = m.findHeader(fakeDoc('<h4 id="t">2026. október 13.</h4>'));
+check("cím-elemben is", hit && hit.text === "2026. október 13.", true);
+check("nincs dátum sehol → null", m.findHeader(fakeDoc('<button id="x">Naptár szűrése</button>')), null);
 
 const failed = results.filter(r => !r).length;
 console.log(failed === 0 ? `MIND A(Z) ${results.length} RENDBEN` : `${failed} BUKOTT`);

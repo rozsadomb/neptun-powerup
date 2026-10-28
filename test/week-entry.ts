@@ -3,3 +3,4 @@
 export * from "../src/modules/weekLabel";
 export * as storage from "../src/core/storage";
 export * as user from "../src/core/user";
+export * as diag from "../src/core/diag";

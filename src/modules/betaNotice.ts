@@ -14,7 +14,7 @@ import { el, ensureUiCss } from "../core/ui";
 // adott egyetemen tényleg kitart a munkamenet.
 //
 // Gyakoriság (a döntés tiszta függvényekben van, a tesztek azokat hajtják):
-//   - bemutatkozó kártya: verziónként egyszer, „Ne mutasd többet” végleg elnémítja;
+//   - bemutatkozó kártya: minor verziónként egyszer (0.14.x-ben egyszer), „Ne mutasd többet” végleg elnémítja;
 //   - emlékeztető: a fülön 25 perc folyamatos, bejelentkezett futás után,
 //     naponta legfeljebb egyszer, és ebben a verzióban többé nem, ha a
 //     felhasználó innen már másolt naplót;
@@ -45,8 +45,13 @@ export function dayKey(ms: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** „0.14.1" → „0.14": a bemutatkozó kártya nem jön újra minden javító kiadásnál. */
+export function minorOf(version: string): string {
+  return version.split(".").slice(0, 2).join(".");
+}
+
 export function shouldShowIntro(state: NoticeState, version: string): boolean {
-  return !state.muted && state.introVersion !== version;
+  return !state.muted && (!state.introVersion || minorOf(state.introVersion) !== minorOf(version));
 }
 
 export function shouldRemind(state: NoticeState, version: string, now: number): boolean {
