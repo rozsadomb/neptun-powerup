@@ -18,7 +18,7 @@ for (const name of ["api", "storage", "base", "diag"]) {
   });
 }
 
-for (const entry of ["core", "watch", "notice", "keepalive", "week"]) {
+for (const entry of ["core", "watch", "notice", "keepalive", "week", "security"]) {
   await build({
     entryPoints: [`test/${entry}-entry.ts`],
     bundle: true,
@@ -41,6 +41,7 @@ await build({
 });
 
 const suites = [
+  ["test/security.test.mjs", [`${out}/security.mjs`]],
   ["test/session.test.mjs", [`${out}/api.mjs`]],
   ["test/storage-lock.test.mjs", [`${out}/storage.mjs`, `${out}/api.mjs`]],
   ["test/universities.test.mjs", ["dist/npu.user.js", `${out}/base.mjs`]],

@@ -76,8 +76,9 @@ export const examOverview: NpuModule = {
       const chips = el(`<div class="npu-chiprow"></div>`);
       terms.slice(0, 6).forEach(term => {
         const chip = el(
-          `<button class="npu-chip${term.value === selected ? " npu-chip--active" : ""}">${term.text}</button>`
+          `<button class="npu-chip${term.value === selected ? " npu-chip--active" : ""}"></button>`
         );
+        chip.textContent = term.text;
         chip.addEventListener("click", () => void render(terms, term.value));
         chips.appendChild(chip);
       });
@@ -103,15 +104,20 @@ export const examOverview: NpuModule = {
           subject.registeredExamList.forEach(exam => {
             const { color, label } = classify(exam);
             const strength = exam.maxStrength ? ` · ${exam.strength}/${exam.maxStrength} fő` : "";
-            panel.body.appendChild(
-              el(
-                `<div class="npu-item npu-item--${color}">` +
-                  `<div class="npu-item__title">${subject.subjectName}</div>` +
-                  `<div class="npu-item__meta">${subject.subjectCode} · ${exam.examType} · ${formatDate(exam.fromDate)}</div>` +
-                  `<div class="npu-item__meta">${label}${exam.examTutors ? ` · ${exam.examTutors}` : ""}${strength}</div>` +
-                  `</div>`
-              )
+            // API values are text, never markup: a subject or tutor name may
+            // contain HTML characters and must not create elements or handlers.
+            const item = el(
+              `<div class="npu-item npu-item--${color}">` +
+                `<div class="npu-item__title"></div>` +
+                `<div class="npu-item__meta"></div>` +
+                `<div class="npu-item__meta"></div>` +
+                `</div>`
             );
+            item.querySelector(".npu-item__title")!.textContent = subject.subjectName;
+            const meta = item.querySelectorAll(".npu-item__meta");
+            meta[0].textContent = `${subject.subjectCode} · ${exam.examType} · ${formatDate(exam.fromDate)}`;
+            meta[1].textContent = `${label}${exam.examTutors ? ` · ${exam.examTutors}` : ""}${strength}`;
+            panel.body.appendChild(item);
           });
         });
       } catch (error) {
@@ -131,9 +137,9 @@ export const examOverview: NpuModule = {
         await render(terms, selected);
       } catch (error) {
         panel.body.innerHTML = "";
-        panel.body.appendChild(
-          el(`<div class="npu-error">Hiba: ${error instanceof Error ? error.message : error}</div>`)
-        );
+        const message = el(`<div class="npu-error"></div>`);
+        message.textContent = `Hiba: ${error instanceof Error ? error.message : error}`;
+        panel.body.appendChild(message);
       }
     })();
 
