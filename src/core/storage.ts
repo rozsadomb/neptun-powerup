@@ -29,6 +29,12 @@ export async function initialize(): Promise<void> {
   } catch {
     data = {};
   }
+  // Retire the old Base64 password store on every startup, even when the
+  // former autoLogin module was disabled. Preserve all unrelated settings.
+  if (Object.prototype.hasOwnProperty.call(data, "logins")) {
+    delete data.logins;
+    await rawSave(JSON.stringify(data));
+  }
 }
 
 interface Mutation {
@@ -39,7 +45,7 @@ interface Mutation {
 // Writes are serialised and re-read first, instead of dumping this tab's whole
 // snapshot. Two tabs each hold their own copy of the blob, so a blind write
 // silently discards whatever the other tab saved in the meantime — dragging a
-// panel in one tab would drop a watch or saved credentials added in the other.
+// panel in one tab would drop a watch added in the other.
 let writeChain: Promise<void> = Promise.resolve();
 // Mutations applied to `data` whose write has not completed yet. When a write
 // finishes it replaces `data` with what it read back from storage — which does
@@ -86,6 +92,8 @@ function persist(mutation: Mutation | null): void {
       } catch {
         fresh = {};
       }
+      // An older open tab may have written the retired credential store.
+      delete fresh.logins;
       applyMutation(fresh, mutation);
       await rawSave(JSON.stringify(fresh));
       const index = pendingMutations.indexOf(mutation);
@@ -118,6 +126,7 @@ export function reload(): Promise<void> {
       } catch {
         fresh = {};
       }
+      delete fresh.logins;
       pendingMutations.forEach(later => applyMutation(fresh, later));
       data = fresh;
     })
@@ -136,7 +145,7 @@ export function get<T>(...keys: string[]): T | undefined {
   return current as T;
 }
 
-/** Wipes every stored NPU setting (watches, term memory, logins, panels...). */
+/** Wipes every stored NPU setting (watches, term memory, panels...). */
 export function resetAll(): void {
   data = {};
   persist(null);

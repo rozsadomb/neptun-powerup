@@ -194,7 +194,6 @@
 
     <ul class="flist">
       <li><span class="ic"><svg class="icon"><use href="#i-list"/></svg></span><div><h3>Automatikus tárgylistázás</h3><p>A tárgyfelvétel oldalon a lista magától betölt, nem kell a keresés gombot nyomkodni.</p></div></li>
-      <li><span class="ic"><svg class="icon"><use href="#i-key"/></svg></span><div><h3>Automatikus belépés</h3><p>Tárolt belépési adatokkal három másodperc után bent vagy. Bármely kattintás megszakítja.</p></div></li>
       <li><span class="ic"><svg class="icon"><use href="#i-puzzle"/></svg></span><div><h3>Beépülő vezérlők</h3><p>A gombok a Neptun saját kártyáin jelennek meg, mintha mindig is ott lettek volna.</p></div></li>
       <li><span class="ic"><svg class="icon"><use href="#i-window"/></svg></span><div><h3>Mozgatható panelek</h3><p>Az NPU paneljei húzhatók, átméretezhetők, és megjegyzik, hova tetted őket.</p></div></li>
       <li><span class="ic"><svg class="icon"><use href="#i-calendar"/></svg></span><div><h3>Félévválasztó-memória</h3><p>A vizsgaoldalak arra a félévre nyílnak, amelyikre utoljára szűrtél.</p></div></li>
@@ -275,7 +274,7 @@
         <div class="vcard__ver" id="latestVersion">…</div>
         <p class="hint" id="latestVersionHint">A nálad futó verziót a Neptun jobb alsó sarkában lévő NPU-jelvényen látod.</p>
         <a class="btn btn--ink" href="/npu.user.js">Frissítés most <span class="btn__ic"><svg class="icon"><use href="#i-arrow"/></svg></span></a>
-        <p class="hint">A beállításaid, a mentett belépési adataid és a figyelt kurzusaid megmaradnak: ez frissítés, nem újratelepítés.</p>
+        <p class="hint">A beállításaid és a figyelt kurzusaid megmaradnak. A korábban mentett belépési adatokat az NPU az első Neptun-megnyitáskor törli.</p>
       </div>
     </div>
     <div class="upd__steps">
@@ -304,7 +303,7 @@
             <li><b>Nézd meg a frissítési beállítást.</b> A Tampermonkey <b>Beállítások</b> fülén a szkriptfrissítés gyakorisága átállítható. Ha <i>soha</i> van beállítva, a szkript magától tényleg nem frissül.</li>
             <li><b>Végső esetben telepítsd újra.</b> Töröld a szkriptet a Tampermonkeyból, majd telepítsd a fenti gombbal.</li>
           </ol>
-          <p class="hint"><b>Figyelem:</b> a törlés a szkripthez tartozó tárolt adatokat is elviszi: a mentett belépési adataidat, a figyelt kurzusaidat és a panelbeállításaidat. Ezért ez tényleg csak a legvégső lépés.</p>
+          <p class="hint"><b>Figyelem:</b> a törlés a szkripthez tartozó tárolt adatokat is elviszi: a figyelt kurzusaidat és a panelbeállításaidat. Ezért ez tényleg csak a legvégső lépés.</p>
         </div>
       </div>
     </div>
@@ -357,7 +356,7 @@
         <div class="faq__body"><div>
           <p>A PowerUp! kizárólag a böngésződben fut, és <b>semmilyen adatot nem küld külső szerverre</b>. Minden beállítás a saját gépeden tárolódik. A forráskód nyílt, bárki <a href="https://github.com/rozsadomb/neptun-powerup" target="_blank" rel="noopener">ellenőrizheti a GitHubon</a>.</p>
           <p>Egyetlen dolgot számolok: hányszor töltik le a szkriptet erről az oldalról (a napot, a böngésző típusát és az országot), hogy lássam, hányan használják. IP-címet és sütit ehhez nem tárolok, a Neptunban történtekről pedig semmit nem látok.</p>
-          <p>Egy figyelmeztetés: ha használod az automatikus belépést, a jelszavad a gépeden, titkosítás nélkül tárolódik. Csak olyan gépen kapcsold be, amelyhez más nem fér hozzá.</p>
+          <p>Az NPU nem tárol jelszavakat. A korábban mentett belépési adatokat frissítés után, az első Neptun-megnyitáskor törli. Belépéshez a böngésződ vagy egy jelszókezelő automatikus kitöltését használd.</p>
         </div></div>
       </details>
       <details>

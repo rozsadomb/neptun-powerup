@@ -43,6 +43,7 @@ await build({
 const suites = [
   ["test/session.test.mjs", [`${out}/api.mjs`]],
   ["test/storage-lock.test.mjs", [`${out}/storage.mjs`, `${out}/api.mjs`]],
+  ["test/credentials.test.mjs", [`${out}/storage.mjs`]],
   ["test/universities.test.mjs", ["dist/npu.user.js", `${out}/base.mjs`]],
   ["test/gate.test.mjs", [`${out}/core.mjs`]],
   ["test/watch.test.mjs", [`${out}/watch.mjs`]],
