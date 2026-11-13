@@ -39,6 +39,27 @@ const startListeners = new Set<StartListener>();
 let installed = false;
 let observedCalls = 0;
 
+// The one place where NPU does more than watch the app's requests: an API
+// call can be held back for a moment before it is sent, so that it does not
+// fly next to a token refresh (gate.ts tells the story). The gate answers
+// null ("send it now") or a promise ("send it when this settles").
+//
+// Holding must never be able to lose or wedge a request of the app's:
+//  - a gate that throws or rejects lets the request through;
+//  - a gate that never settles is overruled by the hard cap below;
+//  - a synchronous XHR cannot be deferred and is never asked about;
+//  - a request the app aborted while it was held is not sent afterwards.
+type SendGate = (info: { method: string; path: string }) => Promise<void> | null;
+const SEND_HOLD_HARD_CAP_MS = 10_000;
+let sendGate: SendGate | null = null;
+let sendHoldCapMs = SEND_HOLD_HARD_CAP_MS;
+
+/** Installs the gate consulted before each of the app's API requests is sent. */
+export function setSendGate(gate: SendGate | null, hardCapMs = SEND_HOLD_HARD_CAP_MS): void {
+  sendGate = gate;
+  sendHoldCapMs = hardCapMs;
+}
+
 declare const unsafeWindow: (Window & typeof globalThis) | undefined;
 
 // The page's own window when the script runs in an isolated world.
@@ -92,75 +113,155 @@ function install(): void {
 
     const originalOpen = proto.open;
     const originalSend = proto.send;
+    const originalAbort = proto.abort;
     // Per-request details, kept off the XHR object's public surface.
-    const pending = new WeakMap<XMLHttpRequest, { method: string; url: string }>();
+    interface Pending {
+      method: string;
+      url: string;
+      async: boolean;
+    }
+    const pending = new WeakMap<XMLHttpRequest, Pending>();
+    // Requests whose send() is being held back, so abort() can call them off.
+    const held = new WeakMap<XMLHttpRequest, { cancelled: boolean }>();
 
     const wrappedOpen = function (this: XMLHttpRequest, ...args: unknown[]) {
       try {
-        pending.set(this, { method: String(args[0]), url: String(args[1]) });
+        pending.set(this, { method: String(args[0]), url: String(args[1]), async: args.length < 3 || args[2] !== false });
       } catch {
         // never let bookkeeping break the app's request
       }
       return (originalOpen as (...a: unknown[]) => unknown).apply(this, args);
     } as typeof proto.open;
 
-    const wrappedSend = function (this: XMLHttpRequest, ...args: unknown[]) {
-      try {
-        const info = pending.get(this);
-        if (info && info.url.includes(API_MARKER)) {
-          const startPath = info.url.slice(info.url.indexOf(API_MARKER) + API_MARKER.length).split(/[?#]/)[0];
-          const startInfo = { method: info.method.toUpperCase(), path: startPath };
-          queueMicrotask(() => {
-            [...startListeners].forEach(listener => {
-              try {
-                listener(startInfo);
-              } catch (error) {
-                console.error("[NPU] net hook start listener failed", error);
+    // The bookkeeping for a request that is really going out now.
+    const observe = (xhr: XMLHttpRequest, info: Pending, path: string) => {
+      const startInfo = { method: info.method.toUpperCase(), path };
+      queueMicrotask(() => {
+        [...startListeners].forEach(listener => {
+          try {
+            listener(startInfo);
+          } catch (error) {
+            console.error("[NPU] net hook start listener failed", error);
+          }
+        });
+      });
+      // loadend fires once per send for every terminal outcome, after the
+      // app's own load handler — so its state is already updated when we
+      // report. `once` keeps a reused XHR from accumulating listeners.
+      xhr.addEventListener(
+        "loadend",
+        () => {
+          let parsed: unknown;
+          let parsedDone = false;
+          notify({
+            method: info.method.toUpperCase(),
+            path,
+            status: xhr.status,
+            url: info.url,
+            json<T>(): T | null {
+              if (!parsedDone) {
+                parsedDone = true;
+                try {
+                  // responseText throws for non-text response types.
+                  parsed = xhr.responseType === "" || xhr.responseType === "text"
+                    ? JSON.parse(xhr.responseText)
+                    : xhr.response;
+                } catch {
+                  parsed = null;
+                }
               }
-            });
-          });
-          // loadend fires once per send for every terminal outcome, after the
-          // app's own load handler — so its state is already updated when we
-          // report. `once` keeps a reused XHR from accumulating listeners.
-          const xhr = this;
-          this.addEventListener(
-            "loadend",
-            () => {
-              const path = info.url.slice(info.url.indexOf(API_MARKER) + API_MARKER.length).split(/[?#]/)[0];
-              let parsed: unknown;
-              let parsedDone = false;
-              notify({
-                method: info.method.toUpperCase(),
-                path,
-                status: xhr.status,
-                url: info.url,
-                json<T>(): T | null {
-                  if (!parsedDone) {
-                    parsedDone = true;
-                    try {
-                      // responseText throws for non-text response types.
-                      parsed = xhr.responseType === "" || xhr.responseType === "text"
-                        ? JSON.parse(xhr.responseText)
-                        : xhr.response;
-                    } catch {
-                      parsed = null;
-                    }
-                  }
-                  return (parsed as T) ?? null;
-                },
-              });
+              return (parsed as T) ?? null;
             },
-            { once: true }
-          );
+          });
+        },
+        { once: true }
+      );
+    };
+
+    const wrappedSend = function (this: XMLHttpRequest, ...args: unknown[]) {
+      const xhr = this;
+      const send = () => (originalSend as (...a: unknown[]) => unknown).apply(xhr, args);
+      let info: Pending | undefined;
+      let path = "";
+      let hold: Promise<void> | null = null;
+      try {
+        info = pending.get(xhr);
+        if (info && info.url.includes(API_MARKER)) {
+          path = info.url.slice(info.url.indexOf(API_MARKER) + API_MARKER.length).split(/[?#]/)[0];
+          if (info.async && sendGate) {
+            hold = sendGate({ method: info.method.toUpperCase(), path });
+          }
+        } else {
+          info = undefined;
         }
       } catch {
-        // ignore, the call itself must proceed untouched
+        hold = null; // a failing gate must not cost the app its request
       }
-      return (originalSend as (...a: unknown[]) => unknown).apply(this, args);
+      if (!info) {
+        return send();
+      }
+      const request = info;
+      if (!hold) {
+        try {
+          observe(xhr, request, path);
+        } catch {
+          // ignore, the call itself must proceed untouched
+        }
+        return send();
+      }
+
+      // Held: the app has called send() and sees an XHR that simply has not
+      // answered yet. A request reports as started only when it really goes
+      // out, so a refresh waiting for the app's requests to drain is not
+      // waiting for the very ones parked behind it.
+      const state = { cancelled: false };
+      held.set(xhr, state);
+      let released = false;
+      const proceed = () => {
+        if (released) {
+          return;
+        }
+        released = true;
+        clearTimeout(timer);
+        if (held.get(xhr) === state) {
+          held.delete(xhr);
+        }
+        // Aborted meanwhile, or opened again for something else: not ours to send.
+        if (state.cancelled || pending.get(xhr) !== request) {
+          return;
+        }
+        try {
+          observe(xhr, request, path);
+        } catch {
+          // ignore, the call itself must proceed untouched
+        }
+        try {
+          send();
+        } catch (error) {
+          // The app's send() returned long ago; there is nobody to throw at.
+          console.error("[NPU] a held request could not be sent", error);
+        }
+      };
+      const timer = setTimeout(proceed, sendHoldCapMs);
+      hold.then(proceed, proceed);
+      return undefined;
     } as typeof proto.send;
+
+    const wrappedAbort = function (this: XMLHttpRequest, ...args: unknown[]) {
+      try {
+        const state = held.get(this);
+        if (state) {
+          state.cancelled = true;
+        }
+      } catch {
+        // never let bookkeeping break the app's abort
+      }
+      return (originalAbort as (...a: unknown[]) => unknown).apply(this, args);
+    } as typeof proto.abort;
 
     proto.open = wrappedOpen;
     proto.send = wrappedSend;
+    proto.abort = wrappedAbort;
     // Across a Xray membrane the assignment can silently fail to apply to the
     // page's own constructor. Read it back before trusting the hook, and undo
     // it if it did not land, so callers fall back to polling instead of
@@ -168,6 +269,7 @@ function install(): void {
     if (proto.open !== wrappedOpen || new target.XMLHttpRequest().open !== wrappedOpen) {
       proto.open = originalOpen;
       proto.send = originalSend;
+      proto.abort = originalAbort;
       log("net hook did not apply to the page, falling back to polling");
       return;
     }

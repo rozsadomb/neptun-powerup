@@ -16,6 +16,8 @@
 // Rules:
 //  - no NPU request while a refresh is running (ours or the app's);
 //  - no refresh while NPU requests are running;
+//  - the app's own requests are waited for before a refresh and held back
+//    while it runs (see holdAppRequest below);
 //  - a refresh announces itself BEFORE waiting for the requests to drain, so
 //    a steady stream of polls cannot starve it (writer preference);
 //  - every mark has an owner id: ending one refresh never erases another
@@ -70,7 +72,31 @@ export function setCrossTab(view: CrossTab): void {
 // well. Timestamps rather than a counter, so a missed loadend can never wedge
 // the count for good.
 const APP_REQUEST_STALE_MS = 60_000;
-let appRequests: number[] = [];
+let appRequests: { startedAt: number; path: string }[] = [];
+
+// The app's requests are not only waited for before a refresh, they are also
+// HELD while one runs (netHook delays their send()). The Metropolitan log of
+// 2026-11-13 died like the Debrecen ones, but with the app's own requests:
+// the user clicked onto the exam page in the very second we had asked the app
+// to refresh, five page-load calls came back right after the new tokens — and
+// the next refresh, 2 min 40 s later, was a 401 with an empty body. The app's
+// interceptor queues its calls only around a refresh it started itself at
+// expiry; at our 150 s margin nothing holds them back.
+//
+// A held request has not reached the network, so it is NOT in flight: the
+// refresh must not wait for it (that would be a deadlock by design).
+// The cap is what the user would feel on a click in the worst case; a normal
+// refresh takes well under a second.
+export const APP_HOLD_MAX_MS = 8_000;
+let heldCount = 0;
+const holdWaiters = new Set<() => void>();
+
+// The refresh while it is actually on the wire (our fetch, or the app's
+// GetNewTokens from send to loadend) — narrower than the marks, which also
+// cover the waiting before it. Whatever app request is in flight inside this
+// window is what the diagnostic log has to name.
+const REFRESH_PATH = "Account/GetNewTokens";
+let wireOverlap: string[] | null = null;
 
 let marks: Mark[] = [];
 let nextId = 1;
@@ -91,6 +117,7 @@ function prune(): void {
   marks = marks.filter(mark => now - mark.startedAt < REFRESH_STALE_MS);
   if (marks.length !== before && marks.length === 0) {
     wake(slotWaiters);
+    wake(holdWaiters);
   }
 }
 
@@ -120,7 +147,58 @@ export function markRefreshEnd(id: number, graceMs = 0): void {
   }
   if (marks.length === 0) {
     wake(slotWaiters);
+    // The held app requests go as soon as the refresh is over. They do not
+    // wait out the grace: their Authorization header was set before the hold,
+    // so the freshly stored token would not reach them anyway — and the old
+    // one is still valid for our whole refresh margin.
+    wake(holdWaiters);
   }
+}
+
+/**
+ * For an app request about to be sent: null when no refresh is running (send
+ * it now), otherwise a promise that resolves when the refresh is over or the
+ * cap has passed. Only this tab's refreshes count: a sibling tab's lease
+ * lingers for seconds after its refresh and would stall every click here.
+ */
+export function holdAppRequest(maxMs = APP_HOLD_MAX_MS): Promise<void> | null {
+  if (!isRefreshing()) {
+    return null;
+  }
+  heldCount++;
+  return new Promise<void>(resolve => {
+    let done = false;
+    const finish = () => {
+      if (!done) {
+        done = true;
+        holdWaiters.delete(finish);
+        clearTimeout(timer);
+        heldCount--;
+        resolve();
+      }
+    };
+    const timer = setTimeout(finish, maxMs);
+    holdWaiters.add(finish);
+  });
+}
+
+/** App requests currently held back behind a refresh. */
+export function heldAppRequests(): number {
+  return heldCount;
+}
+
+/** The refresh request goes out now: start noting what flies next to it. */
+export function refreshWireStart(): void {
+  if (wireOverlap === null) {
+    wireOverlap = appRequests.map(request => request.path).filter(path => path !== REFRESH_PATH);
+  }
+}
+
+/** The refresh has its response: what overlapped it, and how many requests are parked behind it. */
+export function refreshWireEnd(): { overlapped: string[]; held: number } {
+  const overlapped = wireOverlap ?? [];
+  wireOverlap = null;
+  return { overlapped, held: heldCount };
 }
 
 /** NPU's own requests in flight (the app's are counted separately). */
@@ -130,7 +208,7 @@ export function inFlightRequests(): number {
 
 export function appRequestsInFlight(): number {
   const now = Date.now();
-  appRequests = appRequests.filter(startedAt => now - startedAt < APP_REQUEST_STALE_MS);
+  appRequests = appRequests.filter(request => now - request.startedAt < APP_REQUEST_STALE_MS);
   return appRequests.length;
 }
 
@@ -142,13 +220,19 @@ function publish(): void {
   crossTab.publish(inFlight + appRequestsInFlight());
 }
 
-export function appRequestStarted(): void {
-  appRequests.push(Date.now());
+export function appRequestStarted(path = ""): void {
+  appRequests.push({ startedAt: Date.now(), path });
+  if (wireOverlap !== null && path !== REFRESH_PATH) {
+    wireOverlap.push(path);
+  }
   publish();
 }
 
-export function appRequestEnded(): void {
-  appRequests.shift();
+export function appRequestEnded(path = ""): void {
+  // The matching entry when there is one; otherwise the oldest, so a missed
+  // start can never leave the count stuck.
+  const index = appRequests.findIndex(request => request.path === path);
+  appRequests.splice(index === -1 ? 0 : index, 1);
   publish();
   if (!localBusy()) {
     wake(quietWaiters);

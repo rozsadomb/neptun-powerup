@@ -5,18 +5,21 @@ import {
   appRequestEnded,
   appRequestStarted,
   beginRequest,
+  holdAppRequest,
   inFlightRequests,
   isRefreshing,
   markRefreshEnd,
   markRefreshStart,
   otherRefreshActive,
   REFRESH_STALE_MS,
+  refreshWireEnd,
+  refreshWireStart,
   setCrossTab,
   waitForQuiet,
   waitForRequestSlot,
 } from "./gate";
 import * as storage from "./storage";
-import { observedCallCount, onApiCall, onApiStart } from "./netHook";
+import { observedCallCount, onApiCall, onApiStart, setSendGate } from "./netHook";
 
 // Thin client for the new Neptun REST API. The Angular app keeps its access
 // token in sessionStorage, so we can share its session: read the token for
@@ -250,25 +253,70 @@ function holdAppLease(): void {
   }
 }
 
+// What kept the last successful refresh company. A 401 is the verdict on the
+// refresh BEFORE it — that is where the cookie went stale — so the line that
+// reports the 401 quotes this, and one log line tells the whole story even
+// when the earlier lines have been thinned out of a long dump.
+let lastGoodRefresh: { at: number; overlapped: string[]; held: number } | null = null;
+
+function listPaths(paths: string[]): string {
+  const shown = paths.slice(0, 5).join(", ");
+  return paths.length > 5 ? `${shown} (+${paths.length - 5})` : shown;
+}
+
+function reportRefreshCompany(report: { overlapped: string[]; held: number }, succeeded: boolean): void {
+  if (report.overlapped.length > 0) {
+    // With the hold in place this should not happen at all: essential.
+    diag(`a frissítéssel egy időben ${report.overlapped.length} app-kérés futott: ${listPaths(report.overlapped)}`);
+  }
+  if (report.held > 0) {
+    diag(`a frissítés idejére ${report.held} app-kérés várt`, "routine");
+  }
+  if (succeeded) {
+    lastGoodRefresh = { at: Date.now(), ...report };
+  }
+}
+
+/** For the line that reports a rejected refresh: what ran next to the one before it. */
+export function previousRefreshNote(): string {
+  if (!lastGoodRefresh) {
+    return "";
+  }
+  const { at, overlapped, held } = lastGoodRefresh;
+  return (
+    `; az előző sikeres frissítés (${hhmmss(at)}) alatt ` +
+    (overlapped.length > 0 ? `${overlapped.length} app-kérés futott (${listPaths(overlapped)})` : "nem futott app-kérés") +
+    (held > 0 ? `, ${held} várt` : "")
+  );
+}
+
 export function trackAppRefreshes(): void {
   if (appPathAvailable) {
     return;
   }
   appPathAvailable = true;
+  // The app's requests wait out a refresh instead of flying next to it. The
+  // refresh itself is the app's request too when we asked the app for it —
+  // holding that one would be a deadlock.
+  setSendGate(info => (info.path === "Account/GetNewTokens" ? null : holdAppRequest()));
   onApiStart(info => {
-    appRequestStarted();
+    appRequestStarted(info.path);
     if (info.path === "Account/GetNewTokens") {
       appStarts++;
       appMarks.push(markRefreshStart("app"));
       holdAppLease();
+      refreshWireStart();
     }
   });
   onApiCall(call => {
-    appRequestEnded();
+    appRequestEnded(call.path);
     if (call.path === "Account/GetNewTokens") {
       appRefreshes++;
       noteExternalRefresh();
-      if (call.status >= 200 && call.status < 300) {
+      const succeeded = call.status >= 200 && call.status < 300;
+      // Before the mark ends: ending it releases the held requests.
+      reportRefreshCompany(refreshWireEnd(), succeeded);
+      if (succeeded) {
         const body = call.json<{ sessionTimeoutInMinutes?: number }>();
         lastAppRefreshTimeout = typeof body?.sessionTimeoutInMinutes === "number" ? body.sessionTimeoutInMinutes : 0;
       } else {
@@ -473,6 +521,8 @@ async function doRefresh(inherited?: number): Promise<number | null> {
     const abort = new AbortController();
     const abortTimer = window.setTimeout(() => abort.abort(), OWN_REFRESH_TIMEOUT_MS);
     let response: Response;
+    let company = { overlapped: [] as string[], held: 0 };
+    refreshWireStart();
     try {
       // Shaped like the app's own call (Angular HttpClient POST with an empty
       // JSON body), so a server that inspects the body or content type sees
@@ -498,7 +548,9 @@ async function doRefresh(inherited?: number): Promise<number | null> {
       throw error;
     } finally {
       window.clearTimeout(abortTimer);
+      company = refreshWireEnd();
     }
+    reportRefreshCompany(company, response.ok);
     // The server's clock against this machine's (whole seconds only).
     const serverDate = Date.parse(response.headers?.get("Date") ?? "");
     const skew = Number.isFinite(serverDate) ? ` [szerveróra eltérése ${Math.round((serverDate - Date.now()) / 1000)} mp]` : "";
@@ -516,7 +568,7 @@ async function doRefresh(inherited?: number): Promise<number | null> {
         diag(
           `frissítés ELUTASÍTVA: HTTP 401 — a szerver szerint a munkamenet lejárt` +
             (remaining !== null ? `, miközben a jelvény szerint még ${fmtDuration(remaining)} volt hátra` : "") +
-            `; ${diagContext()}${skew}` +
+            `; ${diagContext()}${previousRefreshNote()}${skew}` +
             (body ? `; a szerver üzenete: ${body}` : "")
         );
         log("token refresh rejected (401) — the session is no longer valid");
@@ -556,9 +608,10 @@ async function doRefresh(inherited?: number): Promise<number | null> {
 // App first, then ourselves — for EVERY refresh, whoever asks for it (the
 // keep-alive timer, a request that found its token expiring, a 401 retry).
 // One path means the app's own interceptor-driven refresh and ours can never
-// meet in the same wake-up: when the app is willing, it does the refreshing
-// and serialises its own requests around it; our fetch is only the fallback
-// for an app that does not react.
+// meet in the same wake-up: when the app is willing, it does the refreshing;
+// our fetch is only the fallback for an app that does not react. Either way
+// the app's other requests are held back for the duration (the send gate in
+// trackAppRefreshes): asked at our margin, the app does not queue them itself.
 async function performRefresh(): Promise<number | null> {
   if (appPathAvailable && isAppRefreshEnabled()) {
     const token = getAccessToken();

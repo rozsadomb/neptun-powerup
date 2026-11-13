@@ -121,4 +121,39 @@ check(`A frissítése megvárta B kérését (${Date.now() - t} ms ≥ 300)`, Da
 check("B jelzője eltűnt a végén", [...Array(localStorage.length)].some((_, i) => localStorage.key(i).startsWith("npu-ng:request:")), false);
 fetchImpl = prevImpl;
 
+console.log("K) az app kérése a frissítés idejére visszatartható (v0.14.2, a Metropolitan-napló)");
+await sleep(1600); // az előző esetek türelmi ideje járjon le
+check("tétlen kapun nincs visszatartás", gate.holdAppRequest(), null);
+m = gate.markRefreshStart("npu"); t = Date.now();
+const heldReq = gate.holdAppRequest();
+check("frissítés alatt várakoztat", heldReq instanceof Promise, true);
+check("a várakozó nem számít repülő kérésnek (a frissítés nem vár rá)", gate.appRequestsInFlight(), 0);
+check("egy várakozó van", gate.heldAppRequests(), 1);
+await sleep(250); gate.markRefreshEnd(m, 1500); await heldReq;
+check(`a jel végén elengedi, a token-tárolás türelmi idejét nem várja ki (${Date.now() - t} ms, 250–900)`, Date.now() - t >= 250 && Date.now() - t < 900, true);
+check("nincs több várakozó", gate.heldAppRequests(), 0);
+m = gate.markRefreshStart("app"); t = Date.now();
+await gate.holdAppRequest(300);
+check(`beragadt frissítésnél a plafon után továbbengedi (${Date.now() - t} ms, 300–1000)`, Date.now() - t >= 300 && Date.now() - t < 1000, true);
+check("a plafon után sem marad várakozó", gate.heldAppRequests(), 0);
+gate.markRefreshEnd(m);
+
+console.log("L) a frissítés tudja, mely app-kérések futottak vele egy időben");
+gate.appRequestStarted("Dashboard/GetUpcomingEvents"); gate.appRequestEnded("Dashboard/GetUpcomingEvents");
+gate.appRequestStarted("Exam/GetTerms");
+gate.refreshWireStart();
+gate.appRequestStarted("Account/GetNewTokens");
+gate.appRequestStarted("ExamRegistration/GetExamsList");
+gate.appRequestEnded("Exam/GetTerms");
+m = gate.markRefreshStart("app"); const stillHeld = gate.holdAppRequest();
+let report = gate.refreshWireEnd();
+check("a korábban befejezett kérés nincs benne, a futó és a közben indult igen, a frissítés maga nem",
+  report.overlapped.join(","), "Exam/GetTerms,ExamRegistration/GetExamsList");
+check("a várakoztatott kérések száma is benne van", report.held, 1);
+gate.markRefreshEnd(m); await stillHeld;
+gate.appRequestEnded("ExamRegistration/GetExamsList"); gate.appRequestEnded("Account/GetNewTokens");
+gate.refreshWireStart(); report = gate.refreshWireEnd();
+check("a következő frissítés tiszta lappal indul", report.overlapped.length + report.held, 0);
+check("a kapu a végén üres", gate.appRequestsInFlight(), 0);
+
 const failed = results.filter(r => !r).length; console.log(failed === 0 ? `MIND A(Z) ${results.length} RENDBEN` : `${failed} BUKOTT`); process.exit(failed ? 1 : 0);

@@ -7,6 +7,7 @@ import {
   isAppRefreshEnabled,
   isLoggedIn,
   isSessionLost,
+  previousRefreshNote,
   refreshTokens,
   setAppRefreshEnabled,
 } from "../core/api";
@@ -187,7 +188,7 @@ export const keepAlive: NpuModule = {
           } catch {
             // no readable body
           }
-          diag(`az app frissítése ELUTASÍTVA: HTTP ${call.status}${body ? ` — a szerver üzenete: ${body}` : ""}`);
+          diag(`az app frissítése ELUTASÍTVA: HTTP ${call.status}${body ? ` — a szerver üzenete: ${body}` : ""}${previousRefreshNote()}`);
         }
       } else {
         const ok = call.status >= 200 && call.status < 300;
