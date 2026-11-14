@@ -138,11 +138,6 @@ const ENTRIES: SettingEntry[] = [
     description: "A fül neve az aktuális Neptun-oldalt mutatja („Tárgyfelvétel · Neptun”).",
   },
   {
-    moduleId: "autoLogin",
-    label: "Automatikus belépés",
-    description: "Tárolt belépési adatok és visszaszámlálásos belépés a bejelentkezési oldalon.",
-  },
-  {
     moduleId: "betaNotice",
     label: "Béta-értesítő és napló-emlékeztető",
     description:
@@ -249,7 +244,7 @@ function buildPanel(onClose: () => void): Panel {
   footer.querySelector(".npu-reset")!.addEventListener("click", () => {
     if (
       confirm(
-        "Minden NPU-beállítás törlődik: kapcsolók, figyelt kurzusok, félév-memória, tárolt belépési adatok, panel-pozíciók. Biztos?"
+        "Minden NPU-beállítás törlődik: kapcsolók, figyelt kurzusok, félév-memória, panel-pozíciók. Biztos?"
       )
     ) {
       storage.resetAll();

@@ -29,7 +29,7 @@ Részletes, képes útmutató böngészőnként: **[neptun-powerup.com](https://
 
 ![Piros jelölés a korábban felvett, de nem teljesített tárgyon](docs/subjects.png)
 
-**És még:** automatikus tárgylistázás, színezett vizsga-áttekintés, automatikus belépés, félévválasztó-memória, felugró ablakok elnyelése, beszédes böngészőfül-cím, mozgatható panelek.
+**És még:** automatikus tárgylistázás, színezett vizsga-áttekintés, félévválasztó-memória, felugró ablakok elnyelése, beszédes böngészőfül-cím, mozgatható panelek.
 
 Minden funkció külön ki- és bekapcsolható a jobb alsó jelvény ⚙ gombjával.
 
@@ -43,7 +43,7 @@ A **funkciókat** végig eddig a BME-n teszteltem, máshol eltérés előfordulh
 
 Kizárólag a böngésződben fut, és **semmilyen adatot nem küld külső szerverre**. Minden beállítás a saját gépeden marad. A forráskód nyílt, bárki átnézheti.
 
-Egy figyelmeztetés: ha bekapcsolod az automatikus belépést, a jelszavad a gépeden, titkosítás nélkül tárolódik. Csak olyan gépen használd, amelyhez más nem fér hozzá.
+Az NPU nem tárol jelszavakat. A korábbi automatikus belépéshez mentett adatokat frissítés után, az első Neptun-megnyitáskor törli. Belépéshez a böngésződ vagy egy jelszókezelő automatikus kitöltését használd.
 
 ## A projektről
 

@@ -4,7 +4,6 @@ import { log, VERSION } from "./core/env";
 import { runModules } from "./core/modules";
 import { initRouter } from "./core/router";
 import * as storage from "./core/storage";
-import { autoLogin } from "./modules/autoLogin";
 import { backToLastPage } from "./modules/backToLastPage";
 import { betaNotice } from "./modules/betaNotice";
 import { courseWatch } from "./modules/courseWatch";
@@ -54,7 +53,6 @@ import { weekLabel } from "./modules/weekLabel";
     examOverview,
     weekLabel,
     quickSignup,
-    autoLogin,
     betaNotice,
   ]);
 })();
