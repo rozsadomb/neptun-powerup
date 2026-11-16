@@ -89,54 +89,104 @@ const ADMIN_HTML = `<!doctype html>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="/style.css">
 <style>
-  .admin { max-width: 1080px; margin: 0 auto; padding: clamp(32px, 6vw, 72px) clamp(20px, 4vw, 40px) 80px; }
-  .admin h1 { font-size: clamp(2rem, 1.2rem + 2.5vw, 2.75rem); }
-  .admin > .hint { margin-top: 12px; max-width: 62ch; }
-  .card { margin-top: 28px; padding: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-card); }
-  .card label { display: block; font-weight: 600; font-size: .9375rem; margin-bottom: 8px; color: var(--ink); }
-  .card input[type="password"] { width: 100%; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--radius-input); padding: 12px 14px; }
-  .card input:focus-visible { outline: 0; border-color: var(--ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent); }
+  /* Az oldal a weboldal lapjára ül (krém lap, sötétben éjszakai lap), és csak a lap
+     szerepeit használja: --sheet, --ink, --ink-display, --ink-soft, --ink-2, --rule,
+     --field. Minden tagolás vonal: 2px a dobozok és a fejlécek, 1px a sorok között. */
+  .admin { --row-line: color-mix(in srgb, var(--ink) 34%, transparent); max-width: 1080px; margin: 0 auto; padding: clamp(32px, 6vw, 72px) clamp(20px, 4vw, 40px) 80px; }
+  .admin h1 { font-size: clamp(2.4rem, 1.4rem + 3vw, 3.6rem); }
+  .admin > .hint { margin-top: 14px; max-width: 62ch; }
+  .card { margin-top: 28px; border: var(--rule-w) solid var(--rule); }
+  form.card { padding: 20px; }
+  .card label { display: block; font-family: var(--display); font-weight: 750; font-stretch: 92%; font-size: .9rem; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 8px; color: var(--ink-display); }
+  .card input[type="password"], .card select { font: inherit; color: var(--ink); background: var(--sheet); border: var(--rule-w) solid var(--ink-display); border-radius: 0; }
+  .card input[type="password"] { width: 100%; padding: 12px 14px; }
+  .card select { padding: 6px 10px; cursor: pointer; }
+  .card input:focus-visible, .card select:focus-visible { outline: 0; box-shadow: 4px 4px 0 var(--ink-2); }
   .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-  .card > .row { margin-top: 16px; }
-  .card > .toolbar { margin-top: 0; justify-content: space-between; }
+  form.card > .row { margin-top: 16px; }
+  .btn--sm { padding: .5rem .8rem; font-size: .8125rem; }
+  /* A doboz feje: cím balra, vezérlők jobbra, alatta 2px-es vonal. */
+  .card > .toolbar { justify-content: space-between; padding: 12px 20px; border-bottom: var(--rule-w) solid var(--rule); }
+  .toolbar > strong { font-family: var(--display); font-weight: 750; font-stretch: 92%; font-size: 1.05rem; text-transform: uppercase; letter-spacing: .03em; color: var(--ink-display); }
+  .toolbar label { margin: 0; font-size: .8rem; }
+  .card > .hint { margin: 14px 20px; }
   .status { margin-top: 20px; }
-  .tablewrap { overflow-x: auto; margin-top: 16px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  /* Számok: vonalazott tábla, a becslés a fordított mező. */
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--rule-w); background: var(--rule); border-bottom: var(--rule-w) solid var(--rule); }
+  .stat { padding: 16px 20px 18px; background: var(--sheet); }
+  .stat b { display: block; font-family: var(--display); font-size: 2.3rem; font-weight: 800; font-stretch: 80%; line-height: 1; font-variant-numeric: tabular-nums; color: var(--ink-display); }
+  .stat span { display: block; margin-top: 8px; font-size: .8125rem; line-height: 1.35; color: var(--ink-soft); }
+  .stat--hero { background: var(--ink-display); }
+  .stat--hero b, .stat--hero span { color: var(--sheet); }
+
+  /* Táblázat: tintás fejléc-vonal, minden sor alatt vonal. */
+  .tablewrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: .9375rem; }
-  th, td { text-align: left; vertical-align: top; padding: 12px 10px; border-bottom: 1px solid var(--line); }
-  th { font-size: .8125rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  th, td { text-align: left; vertical-align: top; padding: 11px 12px; border-bottom: 1px solid var(--row-line); }
+  th:first-child, td:first-child { padding-left: 20px; }
+  th:last-child, td:last-child { padding-right: 20px; }
+  thead th { font-family: var(--display); font-size: .78rem; font-weight: 750; font-stretch: 92%; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-display); background: var(--field); border-bottom: var(--rule-w) solid var(--rule); white-space: nowrap; vertical-align: bottom; }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  /* A napi számok rácsa: oszlopvonal és váltakozó sor, hogy a szem ne csússzon el. */
+  table.grid td { padding-top: 8px; padding-bottom: 8px; }
+  table.grid td.num, table.grid th.num { border-left: 1px solid var(--row-line); }
+  table.grid tbody tr:nth-child(even) td { background: var(--field); }
+  table.grid td:first-child { font-weight: 600; }
+  table.grid .sub { font-weight: 400; color: var(--ink-soft); }
+  #dailyWrap { border-bottom: var(--rule-w) solid var(--rule); }
+
   td.issue { min-width: 240px; }
-  tr:last-child td { border-bottom: 0; }
-  td .title { display: block; color: var(--text); }
-  td .kind { display: inline-block; margin-top: 4px; font-size: .75rem; font-weight: 600; color: var(--muted); border: 1px solid var(--line-strong); border-radius: 999px; padding: 1px 8px; }
+  td.issue a { font-weight: 700; }
+  td .title { display: block; margin-top: 2px; color: var(--ink); }
+  td .kind { display: inline-block; margin-top: 6px; font-family: var(--display); font-size: .68rem; font-weight: 750; font-stretch: 92%; text-transform: uppercase; letter-spacing: .05em; line-height: 1; padding: 3px 6px; border: 1px solid var(--ink-display); color: var(--ink-display); }
+  td .kind--bug { background: var(--ink-display); color: var(--sheet); }
   td.contact { overflow-wrap: anywhere; min-width: 180px; }
   td.contact a { font-family: var(--mono); font-size: .875em; }
-  td.when { white-space: nowrap; color: var(--muted); font-size: .875rem; }
-  td.acts { white-space: nowrap; }
-  td.acts .row { gap: 8px; flex-wrap: nowrap; }
+  td.when { white-space: nowrap; color: var(--ink-soft); font-size: .875rem; }
+  td.acts { white-space: nowrap; text-align: right; }
+  td.acts .row { gap: 8px; flex-wrap: nowrap; justify-content: flex-end; }
+  tr.open td { border-bottom-color: transparent; }
   tr.text td { padding-top: 0; }
-  tr.text pre { margin: 0; padding: 14px 16px; white-space: pre-wrap; word-break: break-word; font: inherit; font-size: .9375rem; line-height: 1.55; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-input); }
-  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .card select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--radius-input); padding: 6px 10px; }
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
-  .stat { padding: 14px 16px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-input); }
-  .stat b { display: block; font-size: 1.75rem; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
-  .stat span { display: block; margin-top: 4px; font-size: .8125rem; color: var(--muted); }
-  .stat--hero { background: color-mix(in srgb, var(--accent) 18%, var(--bg)); }
-  .breakdown { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 16px; }
-  .breakdown h3 { font-size: .8125rem; font-weight: 600; color: var(--muted); margin: 0 0 6px; }
+  tr.text p { margin: 0 0 8px; font-weight: 600; }
+  tr.text pre { margin: 0; padding: 14px 16px; white-space: pre-wrap; word-break: break-word; font: inherit; font-size: .9375rem; line-height: 1.55; background: var(--field); border-left: 4px solid var(--ink-display); }
+
+  /* Bontások: két hasáb a vonalazott rácson. */
+  .breakdown { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--rule-w); background: var(--rule); border-bottom: var(--rule-w) solid var(--rule); }
+  .breakdown > div { padding: 14px 20px 10px; background: var(--sheet); }
+  .breakdown h3 { font-size: .78rem; font-weight: 750; font-stretch: 92%; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 6px; padding-bottom: 8px; border-bottom: var(--rule-w) solid var(--rule); }
   .breakdown ul { list-style: none; margin: 0; padding: 0; font-size: .9375rem; }
-  .breakdown li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+  .breakdown li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--row-line); }
   .breakdown li:last-child { border-bottom: 0; }
-  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .breakdown li span:last-child { font-weight: 600; font-variant-numeric: tabular-nums; }
+
   @media (max-width: 860px) {
-    thead { display: none; }
-    table, tbody, tr, td { display: block; }
-    tr { padding: 12px 0; border-bottom: 1px solid var(--line); }
-    tr.text { padding-top: 0; }
-    tr:last-child { border-bottom: 0; }
-    td { border: 0; padding: 4px 0; }
-    td.when, td.acts { white-space: normal; }
-    td[data-l]:not([data-l=""])::before { content: attr(data-l); display: block; font-size: .75rem; color: var(--muted); }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .breakdown { grid-template-columns: minmax(0, 1fr); }
+    table.grid { font-size: .875rem; }
+    table.grid th, table.grid td { padding-left: 10px; padding-right: 10px; }
+    table.grid th:first-child, table.grid td:first-child { padding-left: 14px; white-space: nowrap; }
+    table.grid th:last-child, table.grid td:last-child { padding-right: 14px; }
+    table.grid thead th { white-space: normal; font-size: .68rem; letter-spacing: .02em; }
+    table.grid .sub { display: block; font-size: .75rem; }
+    /* A bejelentések sorai kártyává esnek szét; a napi rács táblázat marad. */
+    table.stack thead { display: none; }
+    table.stack, table.stack tbody, table.stack tr, table.stack td { display: block; }
+    table.stack tr { padding: 12px 20px; border-bottom: 1px solid var(--row-line); }
+    table.stack tr.open { border-bottom-color: transparent; }
+    table.stack tr.text { padding-top: 0; }
+    table.stack tr:last-child { border-bottom: 0; }
+    table.stack td { border: 0; padding: 4px 0; }
+    table.stack td.when, table.stack td.acts { white-space: normal; text-align: left; }
+    table.stack td.acts .row { justify-content: flex-start; margin-top: 6px; }
+    table.stack td[data-l]:not([data-l=""])::before { content: attr(data-l); display: block; font-family: var(--display); font-size: .68rem; font-weight: 750; font-stretch: 92%; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-soft); }
+  }
+  @media (max-width: 480px) {
+    .card > .toolbar { padding: 12px 14px; }
+    .stat { padding: 14px; }
+    .stat b { font-size: 1.9rem; }
   }
 </style>
 </head>
@@ -149,7 +199,7 @@ const ADMIN_HTML = `<!doctype html>
     <label for="token">Admin token</label>
     <input type="password" id="token" autocomplete="current-password" required>
     <div class="row">
-      <button class="btn btn--ink btn--sm" type="submit">Belépés</button>
+      <button class="btn btn--sm" type="submit">Belépés</button>
       <span class="hint">Az <code>ADMIN_TOKEN</code> nevű Cloudflare-secret értéke. Ez a böngésző megjegyzi.</span>
     </div>
   </form>
@@ -167,13 +217,13 @@ const ADMIN_HTML = `<!doctype html>
     <p class="hint" id="installsNote" hidden></p>
     <div class="stats" id="stats" hidden></div>
     <div class="tablewrap" id="dailyWrap" hidden>
-      <table>
+      <table class="grid">
         <thead><tr><th>Nap</th><th class="num">Ellenőrzés</th><th class="num">Letöltés</th><th class="num">Telepítés-kattintás</th></tr></thead>
         <tbody id="dailyRows"></tbody>
       </table>
     </div>
     <div class="breakdown" id="breakdown" hidden></div>
-    <p class="hint" style="margin-top:14px">A szkript letöltéseiből számolva, IP-cím és süti nélkül. <b>Ellenőrzés:</b> a userscript-kezelő (Tampermonkey, Violentmonkey) napi frissítés-ellenőrzése, naponta kb. egy minden telepítésről, ezért a tegnapi érték az aktív telepítések becslése. <b>Letöltés:</b> a teljes fájl (új telepítés, vagy frissítés kiadás után). <b>Telepítés-kattintás:</b> a telepítés gomb megnyitása. 2026-09-11 előtt az ellenőrzések a Letöltés oszlopban vannak: a számláló addig egy Range-fejlécet figyelt, amit a Tampermonkey nem küld.</p>
+    <p class="hint">A szkript letöltéseiből számolva, IP-cím és süti nélkül. <b>Ellenőrzés:</b> a userscript-kezelő (Tampermonkey, Violentmonkey) napi frissítés-ellenőrzése, naponta kb. egy minden telepítésről, ezért a tegnapi érték az aktív telepítések becslése. <b>Letöltés:</b> a teljes fájl (új telepítés, vagy frissítés kiadás után). <b>Telepítés-kattintás:</b> a telepítés gomb megnyitása. 2026-09-11 előtt az ellenőrzések a Letöltés oszlopban vannak: a számláló addig egy Range-fejlécet figyelt, amit a Tampermonkey nem küld.</p>
   </section>
 
   <section class="card" id="panel" hidden aria-live="polite">
@@ -185,7 +235,7 @@ const ADMIN_HTML = `<!doctype html>
       </span>
     </div>
     <div class="tablewrap">
-      <table>
+      <table class="stack">
         <thead><tr><th>Bejelentés</th><th>Elérhetőség</th><th>Beérkezett</th><th>Törlődik</th><th><span class="sr">Műveletek</span></th></tr></thead>
         <tbody id="rows"></tbody>
       </table>
@@ -239,7 +289,7 @@ const ADMIN_HTML = `<!doctype html>
       var tdIssue = el("td", { "data-l": "Bejelentés", class: "issue" });
       tdIssue.appendChild(el("a", { href: it.url, target: "_blank", rel: "noopener" }, "#" + it.issue));
       if (it.title) tdIssue.appendChild(el("span", { class: "title" }, it.title));
-      tdIssue.appendChild(el("span", { class: "kind" }, it.type === "idea" ? "Ötlet" : "Hiba"));
+      tdIssue.appendChild(el("span", { class: it.type === "idea" ? "kind kind--idea" : "kind kind--bug" }, it.type === "idea" ? "Ötlet" : "Hiba"));
       var tdContact = el("td", { "data-l": "Elérhetőség", class: "contact" });
       if (!it.contact) {
         tdContact.appendChild(el("span", { class: "hint" }, "nincs"));
@@ -255,7 +305,7 @@ const ADMIN_HTML = `<!doctype html>
       var open = el("button", { type: "button", class: "btn btn--ghost btn--sm", "aria-expanded": "false" }, "Szöveg");
       var textRow = null;
       open.addEventListener("click", function () {
-        if (textRow) { textRow.remove(); textRow = null; open.setAttribute("aria-expanded", "false"); return; }
+        if (textRow) { textRow.remove(); textRow = null; tr.classList.remove("open"); open.setAttribute("aria-expanded", "false"); return; }
         open.disabled = true;
         api("GET", "/api/admin/reports/" + it.issue).then(function (r) {
           open.disabled = false;
@@ -263,11 +313,12 @@ const ADMIN_HTML = `<!doctype html>
           textRow = el("tr", { class: "text" });
           var td = el("td", { colspan: "5", "data-l": "" });
           if (r.data.university) {
-            td.appendChild(el("p", { style: "margin:0 0 8px;font-weight:600" }, "Egyetem: " + r.data.university));
+            td.appendChild(el("p", null, "Egyetem: " + r.data.university));
           }
           td.appendChild(el("pre", null, r.data.body || ""));
           textRow.appendChild(td);
           tr.after(textRow);
+          tr.classList.add("open");
           open.setAttribute("aria-expanded", "true");
         });
       });
@@ -337,8 +388,10 @@ const ADMIN_HTML = `<!doctype html>
     dailyRows.textContent = "";
     d.daily.slice().reverse().slice(0, 14).forEach(function (row) {
       var tr = el("tr");
-      var dayLabel = row.day === d.today.day ? row.day + " (ma, csonka)" : d.days === 1 && row.day === d.yesterday.day ? row.day + " (tegnap, csak az ablakba eső rész)" : row.day;
-      tr.appendChild(el("td", { "data-l": "Nap" }, dayLabel));
+      var dayNote = row.day === d.today.day ? "ma, csonka" : d.days === 1 && row.day === d.yesterday.day ? "tegnap, csak az ablakba eső rész" : "";
+      var tdDay = el("td", { "data-l": "Nap" }, row.day);
+      if (dayNote) tdDay.appendChild(el("span", { class: "sub" }, " (" + dayNote + ")"));
+      tr.appendChild(tdDay);
       tr.appendChild(el("td", { class: "num", "data-l": "Ellenőrzés" }, nf.format(row.check)));
       tr.appendChild(el("td", { class: "num", "data-l": "Letöltés" }, nf.format(row.download)));
       tr.appendChild(el("td", { class: "num", "data-l": "Telepítés-kattintás" }, nf.format(row.install)));
