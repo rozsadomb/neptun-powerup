@@ -229,8 +229,14 @@ Utána a http://localhost:8788/admin oldalon a `proba` tokennel lehet belépni.
 
 ## 6. A régi weboldal visszaállítása
 
-A 2026-09-02-i újratervezés előtti weboldal a `regi-weboldal` gitágon és tagen
-van megőrizve (ugyanarra a commitra mutatnak). Ha vissza kell hozni, két út van:
+Két korábbi változat van megőrizve gitben:
+
+- `regi-weboldal` (ág és tag): a 2026-09-02-i újratervezés előtti, első weboldal;
+- `weboldal-v2` (tag): a 2026-10-02-i plakát-újratervezés előtti, második weboldal
+  (Geist és Bricolage betűk, bento-rács, készülékkeretes bemutató).
+
+Ha vissza kell hozni valamelyiket, két út van (a példák a `regi-weboldal` tagre
+mutatnak, a `weboldal-v2` ugyanígy használható):
 
 **Gitből, tartósan** (a `main`-re kerül, és a push után magától élesedik):
 

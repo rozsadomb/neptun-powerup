@@ -12,3 +12,9 @@ site/demo.js
 
 # Claude Code helyi beállítások
 .claude/settings.local.json
+
+# Impeccable (design skill) futás közbeni állapota; a surfaces/ brief marad a repóban
+.impeccable/build/
+.impeccable/questions/
+.impeccable/review/
+.impeccable/mocks/

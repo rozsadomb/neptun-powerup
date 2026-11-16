@@ -6,14 +6,11 @@
   <title>Visszajelzés, Neptun PowerUp! NG</title>
   <meta name="description" content="Hibabejelentés és ötletek a Neptun PowerUp! NG-hez, fiók nélkül.">
   <link rel="canonical" href="https://neptun-powerup.com/visszajelzes">
-  <meta name="theme-color" content="#f4f5f8" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0c1018" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#0c1424">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f2b52e'/%3E%3Cpath transform='translate(8 8) scale(.1875)' fill='%230c1424' d='M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z'/%3E%3C/svg%3E">
-  <link rel="preload" href="/fonts/Geist-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="/fonts/Geist-latin-ext.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="/fonts/Bricolage-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/Archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/Archivo-latin-ext.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/style.css">
-  <script>document.documentElement.classList.add("js");</script>
 </head>
 <body>
 
@@ -56,23 +53,23 @@
 </div>
 
 <main id="main">
-<section class="page" aria-labelledby="fb-h">
+<section class="sheet page" aria-labelledby="fb-h">
   <div class="wrap fb">
     <div class="fb__intro">
-      <h1 id="fb-h" style="font-size:clamp(2.2rem,1.2rem+3vw,3.25rem)">Visszajelzés</h1>
+      <h1 id="fb-h" class="fit" data-fit="stretch"><span class="fit__t">Visszajelzés</span></h1>
       <p class="lead">Találtál egy hibát? Van egy ötleted? Írd meg, nem kell hozzá semmilyen fiók.</p>
       <p class="hint">A bejelentésed szövege nyilvánosan megjelenik a projekt <a href="https://github.com/rozsadomb/neptun-powerup/issues" target="_blank" rel="noopener">GitHub-oldalán</a>, így azt is látod majd, mi történik vele. Az email címed nem kerül ki: azt csak én látom.</p>
       <p class="hint">Van GitHub-fiókod? Akkor <a href="https://github.com/rozsadomb/neptun-powerup/issues/new" target="_blank" rel="noopener">közvetlenül is nyithatsz issue-t</a>.</p>
       <details class="privacy">
         <summary>Adatkezelési tájékoztató<span class="plus"><svg class="icon"><use href="#i-plus"/></svg></span></summary>
-        <div>
+        <div class="privacy__body"><div>
           <p><strong>Mit kezelek?</strong> A bejelentés címét, szövegét és az egyetemed nevét, valamint az email címedet, ha megadod.</p>
           <p><strong>Miért?</strong> Hogy a hibát kijavíthassam, az ötletet átgondolhassam, és ha kérted, válaszolhassak neked.</p>
           <p><strong>Ki látja?</strong> A bejelentés szövege nyilvános GitHub-issue-ként jelenik meg. Az email címed csak én látom, másnak nem adom tovább.</p>
           <p><strong>Meddig?</strong> A bejelentés privát másolata az email címmel együtt <span data-ttl-days>90</span> nap után magától törlődik, kérésre hamarabb. A nyilvános szöveg a GitHubon marad, amíg a projekt létezik.</p>
           <p><strong>Hol?</strong> A nyilvános szöveget a GitHub, a privát másolatot a Cloudflare tárolja a projekt megbízásából.</p>
           <p><strong>Mit kérhetsz?</strong> Bármikor kérheted az email címed törlését vagy a bejelentésed módosítását: küldj egy új bejelentést ezen az űrlapon a bejelentés számával, az email címedet nem kell újra leírnod.</p>
-        </div>
+        </div></div>
       </details>
     </div>
 
@@ -136,14 +133,14 @@
       <div id="formStatus" hidden class="form-status"></div>
 
       <div>
-        <button class="btn btn--ink" type="submit" id="fbSubmit">Elküldés</button>
+        <button class="btn btn--lg" type="submit" id="fbSubmit">Elküldés</button>
       </div>
     </form>
   </div>
 </section>
 </main>
 
-<footer>
+<footer class="sheet sheet--navy">
   <div class="wrap foot">
     <div>
       <a class="brand" href="/"><span class="brand__mark"><svg class="icon"><use href="#i-bolt"/></svg></span><span>Neptun PowerUp!<small>NG</small></span></a>
