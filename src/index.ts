@@ -9,6 +9,7 @@ import { backToLastPage } from "./modules/backToLastPage";
 import { betaNotice } from "./modules/betaNotice";
 import { courseWatch } from "./modules/courseWatch";
 import { examOverview } from "./modules/examOverview";
+import { examPlanner } from "./modules/examPlanner";
 import { keepAlive } from "./modules/keepAlive";
 import { pageTitle } from "./modules/pageTitle";
 import { popupDismiss } from "./modules/popupDismiss";
@@ -52,6 +53,7 @@ import { weekLabel } from "./modules/weekLabel";
     subjectHistory,
     subjectInlineControls,
     examOverview,
+    examPlanner,
     weekLabel,
     quickSignup,
     autoLogin,

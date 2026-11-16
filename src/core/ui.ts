@@ -152,9 +152,12 @@ function defaultGeometry(): PanelGeometry {
   };
 }
 
-function loadGeometry(id: string): PanelGeometry {
+/** Where a panel sits until the user moves it; anything left out is the shared default. */
+export type PanelDefaults = () => Partial<Pick<PanelGeometry, "left" | "top" | "width" | "height">>;
+
+function loadGeometry(id: string, defaults?: PanelDefaults): PanelGeometry {
   const saved = storage.get<Partial<PanelGeometry>>("panels", id);
-  const fallback = defaultGeometry();
+  const fallback = { ...defaultGeometry(), ...(defaults?.() ?? {}) };
   if (!saved || typeof saved !== "object") {
     return fallback;
   }
@@ -229,7 +232,7 @@ export function buildPanelShell(id: string, title: string): PanelShell {
   };
 }
 
-export function createPanel(id: string, title: string): Panel {
+export function createPanel(id: string, title: string, defaults?: PanelDefaults): Panel {
   document.getElementById(id)?.remove();
   const { panel, header, body, toggle, reset } = buildPanelShell(id, title);
 
@@ -243,7 +246,7 @@ export function createPanel(id: string, title: string): Panel {
   // What the user asked for. Clamping is presentation only: a temporarily
   // tiny viewport (which happens while the tab is closing or the window is
   // being resized) must never shrink the remembered size permanently.
-  let geometry = loadGeometry(id);
+  let geometry = loadGeometry(id, defaults);
 
   let saveTimer: number | undefined;
   const persist = () => {
@@ -426,7 +429,7 @@ export function createPanel(id: string, title: string): Panel {
   });
 
   reset.addEventListener("click", () => {
-    geometry = clamp({ ...defaultGeometry(), collapsed: geometry.collapsed });
+    geometry = clamp({ ...defaultGeometry(), ...(defaults?.() ?? {}), collapsed: geometry.collapsed });
     apply();
     save();
   });

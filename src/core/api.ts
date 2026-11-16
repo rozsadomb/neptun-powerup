@@ -685,12 +685,19 @@ function parseErrorBody(body: string): string {
   try {
     const parsed = JSON.parse(body) as {
       modelStateErrors?: { key: string; errors: string[] }[];
-      notification?: { message?: string }[];
+      notification?: { message?: string; description?: string }[];
       message?: string;
     };
     const parts: string[] = [];
     parsed.modelStateErrors?.forEach(e => parts.push(...e.errors));
-    parsed.notification?.forEach(n => n.message && parts.push(n.message));
+    // The exam endpoints put the text in `description` ("A vizsgajelentkezés
+    // nem engedélyezett. Nincs vizsgajelentkezési időszak!", on an HTTP 500).
+    parsed.notification?.forEach(n => {
+      const text = n?.message || n?.description;
+      if (text) {
+        parts.push(text);
+      }
+    });
     if (parsed.message) {
       parts.push(parsed.message);
     }
@@ -744,7 +751,14 @@ export async function apiPost<T>(path: string, body: unknown): Promise<ApiRespon
   if (!response.ok) {
     throw new ApiError(parseErrorBody(text), response.status);
   }
-  return JSON.parse(text) as ApiResponse<T>;
+  // A 2xx is a success whatever the body looks like: reporting an empty or
+  // non-JSON answer as an error would tell the student a signup failed that
+  // the server had in fact accepted.
+  try {
+    return JSON.parse(text) as ApiResponse<T>;
+  } catch {
+    return { data: null, notification: [] } as unknown as ApiResponse<T>;
+  }
 }
 
 // Authenticated API call. Refreshes the token up front when needed and

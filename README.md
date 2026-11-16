@@ -25,6 +25,8 @@ Részletes, képes útmutató böngészőnként: **[neptun-powerup.com](https://
 
 **Helyfigyelő.** A betelt kurzusok mellett megjelenik egy „figyelem” gomb. Amint felszabadul egy hely, a böngésző értesítéssel és hangjelzéssel szól — akkor is, ha épp máshol jársz a Neptunban. Kérheted azt is, hogy rögtön fel is vegye.
 
+**Vizsgatervező.** A Vizsgajelentkezés soraiban „NPU: tervezőbe” gomb van: a vizsgáidat már a jelentkezés nyitása előtt összeválogathatod, nyitás után pedig a panelről egy kattintással felveheted őket, kérésre újrapróbálással. Magától nem jelentkezik semmire, minden felvétel a te kattintásodból indul.
+
 **Megmutatja, mit felejtesz el.** A tárgyfelvételi listán pirossal jelöli azt a tárgyat, amit korábbi félévben már felvettél, de nem teljesítettél. Így a pótlandó tárgy nem vész el a többi ötven között.
 
 ![Piros jelölés a korábban felvett, de nem teljesített tárgyon](docs/subjects.png)

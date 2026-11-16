@@ -125,6 +125,44 @@ Ezért a változásfigyelésre a **könnyű** végpont való (a `scheduledCourse
 — ebből egyszerű a színezés, nem kell jegyszöveget parse-olni, mint a régi NPU-ban.
 A félévek itt az `Exam/GetTerms` GUID-jai (más, mint a `SubjectApplication/Terms` numerikus id-ja).
 
+## Vizsgajelentkezés: lista és a jelentkezés payloadja (2026-11-16, BME, csak olvasva)
+
+Oldal: `/exams/overview/registration`. A vizsgák a jelentkezési időszak (BME: 2026-12-08-tól) **előtt is
+listázódnak**, a sorban ott a „Felvétel" gomb is: az app akkor mutatja, ha a vizsga még nem kezdődött el
+(`new Date < new Date(fromDate)`), az időszakot nem nézi, a szerver utasít el.
+
+`GET ExamRegistration/GetExamsList?sortAndPage.firstRow=0&sortAndPage.lastRow=9999` (termId nélkül az aktuális félév)
+→ `data[]`: `subjectId`, `subjectCode`, `subjectName`, `uiDisplayState`, `examList[]`, benne:
+`examId`, `courseId`, `courseExamId`, `courseCode`, `examType`, `courseExamType`, `fromDate`, `toDate`,
+`strength`, `maxStrength` (null = nincs limit), `minStrength`, `waitingStrength`, `waitingListNumber`,
+`courseStrength`, `maxCourseStrength`, `examTutors`, `description`, `examSignin` (bool, felvett-e),
+`examSignInId` (felvett vizsgánál a leadáshoz kell), `examPrerequisiteType`, `uiDisplayState {type, reasons[]}`.
+
+Az app kódjából (chunk, `ExamRegistrationService`), valódi jelentkezés NEM történt:
+- **`POST ExamRegistration/SignUpForExam`** body: `{ examId, courseId }` → `data`; az app megerősítést nem kér,
+  siker után „exams.signInSuccessful" értesítés és a lista újratöltése.
+- **`POST ExamRegistration/UnSubscribe`** body: `{ examId, examSignInId }`.
+- Csere: `Exam/GetChangeExamsList`, majd `ChangeExam` `{ newExamId, oldExamSignInId, newCourseId, courseExamId, … }`.
+
+`GET ExamRegistration/GetExamRegistrationDetail?examId=&courseExamId=` → a fentiek mellett `systemDate` (szerveridő),
+`signInFromDate` / `signInToDate` (vizsgánkénti jelentkezési ablak; a próbált vizsgánál mindkettő null),
+`examIdentifier`, `bookedObjectCodes[]` (terem), `organizationDescription`, `credit`.
+
+`GetExamSubjects` termId nélkül 400 (`modelStateErrors[{key, errors[]}]`), ez a validációs hiba alakja.
+
+DOM: `neptun-exam-registration` → tárgyanként `neptun-secondary-title` + `neptun-data-table` →
+`table#data-table tr.mat-mdc-row` → `td.table-actions > div.table-actions__wrapper` → gombok
+(`button#data-table-element_action-icon-btn-<sor>-<oszlop>.table-action.link.primary`).
+
+**Nyitás előtti kísérlet (2026-11-16, a felhasználó kérésére, az app saját „Felvétel" gombjával):**
+`POST ExamRegistration/SignUpForExam` → **HTTP 500**, törzs:
+`{ "data": null, "notification": [{ "type": 3, "title": null, "description": "A vizsgajelentkezés nem engedélyezett. Nincs vizsgajelentkezési időszak!" }] }`.
+Az üzleti elutasítás tehát 500-as státusszal jön, a szöveg a `notification[0].description`-ben van; az app
+„Sikertelen" értesítésben írja ki. (A Metropolitan-napló 500-as `SignUpForExam` sora is ilyen lehetett.)
+Az app sikertelen kísérlet után a listát nem tölti újra.
+
+**Nem tudjuk még:** mit válaszol betelt vizsgánál, illetve siker esetén (a `data` alakja). Nyitás után derül ki.
+
 ## Bejelentkezés (login oldal)
 
 `POST Account/Authenticate` payload:

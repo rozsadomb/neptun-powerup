@@ -116,6 +116,12 @@ const ENTRIES: SettingEntry[] = [
     description: "Színezett vizsgalista félévválasztóval a Vizsgák oldalain.",
   },
   {
+    moduleId: "examPlanner",
+    label: "Vizsgatervező",
+    description:
+      "A Vizsgajelentkezés soraiban „NPU: tervezőbe” gomb: a vizsgákat már a jelentkezés nyitása előtt összeválogathatod, nyitás után a panelről egy kattintással felveheted őket. Magától nem jelentkezik semmire.",
+  },
+  {
     moduleId: "weekLabel",
     label: "Hét sorszáma a naptárban",
     description:
